@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "ZAQRlnG3kA7MBsyD90g7o"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "discipline app icon"
