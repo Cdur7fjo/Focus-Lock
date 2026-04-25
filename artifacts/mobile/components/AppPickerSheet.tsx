@@ -1,8 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
@@ -10,9 +12,11 @@ import {
 } from "react-native";
 
 import { AppIcon } from "@/components/AppIcon";
+import { CyclingGradient } from "@/components/CyclingGradient";
 import { PressableScale } from "@/components/PressableScale";
 import { useColors } from "@/hooks/useColors";
-import { APP_COLORS, APP_ICONS } from "@/lib/mockApps";
+import { loadInstalledApps } from "@/lib/installedApps";
+import { APP_COLORS, APP_ICONS, SUGGESTED_APPS } from "@/lib/mockApps";
 import { useStore } from "@/lib/store";
 import type { AppItem } from "@/lib/types";
 
@@ -31,16 +35,32 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
   const [newName, setNewName] = useState("");
   const [colorIdx, setColorIdx] = useState(0);
   const [iconIdx, setIconIdx] = useState(0);
+  const [installed, setInstalled] = useState<AppItem[] | null>(null);
+  const [loadingInstalled, setLoadingInstalled] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (visible) {
       setSelected(new Set(initial));
       setAdding(false);
       setNewName("");
+      // try to load real installed apps if we're in a native build
+      if (installed === null && !loadingInstalled) {
+        setLoadingInstalled(true);
+        loadInstalledApps()
+          .then((apps) => setInstalled(apps))
+          .finally(() => setLoadingInstalled(false));
+      }
     }
   }, [visible, initial]);
 
-  const apps = useMemo(() => allApps(), [allApps, visible]);
+  const apps = useMemo(() => {
+    // Prefer real installed apps if available + always include user customs
+    if (installed && installed.length > 0) {
+      const customs = allApps().filter((a) => a.custom);
+      return [...customs, ...installed];
+    }
+    return allApps();
+  }, [allApps, installed, visible]);
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -65,6 +85,10 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
     setIconIdx((iconIdx + 1) % APP_ICONS.length);
   };
 
+  const showNativeNotice =
+    Platform.OS !== "android" || (installed === null && !loadingInstalled) ||
+    (installed !== null && installed.length === 0);
+
   return (
     <Modal
       visible={visible}
@@ -85,9 +109,39 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
               تطبيقاتي
             </Text>
             <Text style={[styles.sub, { color: colors.mutedForeground }]}>
-              اختر التطبيقات اللي هتحتاجها أثناء المهمة. اضغط + لإضافة أي تطبيق من تلفونك.
+              {installed && installed.length > 0
+                ? `${installed.length} تطبيق من تلفونك — اختر اللي هتحتاجه`
+                : "اختر التطبيقات اللي هتحتاجها أو أضف من تلفونك"}
             </Text>
           </View>
+
+          {loadingInstalled ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={colors.primary} />
+              <Text style={[styles.sub, { color: colors.mutedForeground }]}>
+                جاري قراءة تطبيقات تلفونك...
+              </Text>
+            </View>
+          ) : null}
+
+          {showNativeNotice && !loadingInstalled ? (
+            <View
+              style={[
+                styles.notice,
+                {
+                  backgroundColor: colors.warning + "12",
+                  borderColor: colors.warning,
+                },
+              ]}
+            >
+              <Feather name="info" size={14} color={colors.warning} />
+              <Text style={[styles.noticeText, { color: colors.warning }]}>
+                {Platform.OS === "android"
+                  ? "علشان نطلع لك تطبيقات تلفونك الفعلية، التطبيق محتاج يتبني كـ APK كامل وتفعّل صلاحية قائمة التطبيقات"
+                  : "في الويب: استخدم زر الإضافة بالأسفل لإدخال أسماء تطبيقاتك يدويًا. على Android حقيقي هتظهر تطبيقات تلفونك تلقائيًا."}
+              </Text>
+            </View>
+          ) : null}
 
           <FlatList
             data={apps}
@@ -106,7 +160,7 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
               >
                 <Feather name="plus" size={20} color={colors.primary} />
                 <Text style={[styles.addText, { color: colors.primary }]}>
-                  أضف تطبيق من تلفوني
+                  أضف تطبيق يدويًا
                 </Text>
               </PressableScale>
             }
@@ -162,18 +216,12 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
                 إلغاء
               </Text>
             </PressableScale>
-            <PressableScale
-              onPress={() => onSave(Array.from(selected))}
-              style={[
-                styles.btn,
-                { backgroundColor: colors.primary, flex: 1.5 },
-              ]}
-            >
-              <Text
-                style={[styles.btnText, { color: colors.primaryForeground }]}
-              >
-                حفظ ({selected.size})
-              </Text>
+            <PressableScale onPress={() => onSave(Array.from(selected))} style={{ flex: 1.5 }}>
+              <CyclingGradient duration={2800} style={styles.btn}>
+                <Text style={[styles.btnText, { color: "#1A1306" }]}>
+                  حفظ ({selected.size})
+                </Text>
+              </CyclingGradient>
             </PressableScale>
           </View>
         </View>
@@ -290,18 +338,12 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
                   إلغاء
                 </Text>
               </PressableScale>
-              <PressableScale
-                onPress={handleAddCustom}
-                style={[
-                  styles.btn,
-                  { backgroundColor: colors.primary, flex: 1.5 },
-                ]}
-              >
-                <Text
-                  style={[styles.btnText, { color: colors.primaryForeground }]}
-                >
-                  أضف
-                </Text>
+              <PressableScale onPress={handleAddCustom} style={{ flex: 1.5 }}>
+                <CyclingGradient duration={2800} style={styles.btn}>
+                  <Text style={[styles.btnText, { color: "#1A1306" }]}>
+                    أضف
+                  </Text>
+                </CyclingGradient>
               </PressableScale>
             </View>
           </View>
@@ -310,6 +352,10 @@ export function AppPickerSheet({ visible, initial, onClose, onSave }: Props) {
     </Modal>
   );
 }
+
+// re-export to keep tree-shaking simple
+const _ensure = SUGGESTED_APPS;
+void _ensure;
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -344,6 +390,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "right",
     fontFamily: "Inter_400Regular",
+  },
+  loadingBox: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+  },
+  notice: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+    marginHorizontal: 4,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    textAlign: "right",
+    lineHeight: 16,
   },
   addCard: {
     flexDirection: "row-reverse",
@@ -380,6 +449,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
   },
   btnText: { fontFamily: "Inter_700Bold", fontSize: 15 },
 

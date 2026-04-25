@@ -18,12 +18,24 @@ export type Task = {
   starOn: boolean;
   daysCount: number;
   daysRemaining: number;
+  starRepeatUsed: boolean;
+  createdDate: string;
   createdAt: number;
   startedAt: number | null;
   completedAt: number | null;
   lastResetDate: string | null;
   starLockedDate: string | null;
 };
+
+export type AppPermissionKey =
+  | "deviceAdmin"
+  | "accessibility"
+  | "overlay"
+  | "usageStats"
+  | "bootCompleted"
+  | "ignoreBattery"
+  | "queryPackages"
+  | "notifications";
 
 export type AppState = {
   passphrase: string | null;
@@ -33,4 +45,7 @@ export type AppState = {
   customApps: AppItem[];
   activeTimerTaskId: string | null;
   timerStartAt: number | null;
+  lastDailyPlanDate: string | null;
+  lastEveningPromptDate: string | null;
+  permissionsGranted: Partial<Record<AppPermissionKey, boolean>>;
 };

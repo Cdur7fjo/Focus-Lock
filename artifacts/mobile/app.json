@@ -11,12 +11,28 @@
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0D0904"
     },
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "package": "com.youssef.hayati",
+      "permissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.BIND_DEVICE_ADMIN",
+        "android.permission.BIND_ACCESSIBILITY_SERVICE",
+        "android.permission.PACKAGE_USAGE_STATS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.QUERY_ALL_PACKAGES",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [],
+      "edgeToEdgeEnabled": true
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },

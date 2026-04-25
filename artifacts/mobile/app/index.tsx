@@ -1,12 +1,10 @@
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -20,6 +18,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AddTaskForm } from "@/components/AddTaskForm";
 import { AnimatedGradient, GradientBg } from "@/components/AnimatedGradient";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { CyclingGradient } from "@/components/CyclingGradient";
+import { DailyPlanModal } from "@/components/DailyPlanModal";
+import { EveningPromptModal } from "@/components/EveningPromptModal";
 import { PressableScale } from "@/components/PressableScale";
 import { SettingsModal } from "@/components/SettingsModal";
 import { TaskCard } from "@/components/TaskCard";
@@ -32,22 +33,35 @@ export default function HomeScreen() {
   const {
     state,
     ready,
-    setPassphrase,
     visibleTodayTasks,
     essentialsRemaining,
     completeTask,
     startTask,
     toggleStar,
+    shouldShowDailyPlan,
+    markDailyPlanShown,
+    shouldShowEveningPrompt,
+    markEveningPromptShown,
   } = useStore();
-
-  const [phrase, setPhrase] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [pError, setPError] = useState<string | null>(null);
 
   const [adding, setAdding] = useState(false);
   const [confirmTaskId, setConfirmTaskId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [dailyPlanOpen, setDailyPlanOpen] = useState(false);
+  const [eveningOpen, setEveningOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Daily/evening checks — re-evaluate every minute and on mount
+  useEffect(() => {
+    if (!ready) return;
+    const check = () => {
+      if (shouldShowDailyPlan()) setDailyPlanOpen(true);
+      if (shouldShowEveningPrompt()) setEveningOpen(true);
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => clearInterval(id);
+  }, [ready, shouldShowDailyPlan, shouldShowEveningPrompt, state.tasks]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -59,163 +73,6 @@ export default function HomeScreen() {
 
   if (!ready) return null;
 
-  // ===== Onboarding =====
-  if (!state.passphrase) {
-    const handleSave = async () => {
-      if (phrase.trim().length < 3) {
-        setPError("اكتب كلمة لا تقل عن 3 حروف");
-        return;
-      }
-      if (phrase.trim() !== confirm.trim()) {
-        setPError("النصان غير متطابقين");
-        return;
-      }
-      await setPassphrase(phrase);
-    };
-
-    return (
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <ScrollView
-          contentContainerStyle={{
-            paddingTop: topPad,
-            paddingBottom: bottomPad,
-            paddingHorizontal: 22,
-            gap: 22,
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <AnimatedGradient style={styles.heroBox}>
-            <View style={styles.heroInner}>
-              <View style={styles.logoWrap}>
-                <View style={styles.logo}>
-                  <Feather name="sun" size={36} color="#1A1306" />
-                </View>
-              </View>
-              <Text style={styles.heroTitle}>نظام حياتي</Text>
-              <Text style={styles.heroSub}>
-                نظّم يومك. أنجز ما يهم. كافئ نفسك.
-              </Text>
-            </View>
-          </AnimatedGradient>
-
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <LinearGradient
-                colors={[colors.gradientA, colors.gradientB]}
-                style={styles.iconCircle}
-              >
-                <Feather name="key" size={20} color={colors.primaryForeground} />
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                  اضبط كلمة التأكيد
-                </Text>
-                <Text style={[styles.cardSub, { color: colors.mutedForeground }]}>
-                  هتكتبها كل مرة تأكد فيها إنجاز مهمة
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.warningBox,
-                {
-                  backgroundColor: colors.warning + "15",
-                  borderColor: colors.warning,
-                },
-              ]}
-            >
-              <Feather name="alert-triangle" size={14} color={colors.warning} />
-              <Text style={[styles.warningText, { color: colors.warning }]}>
-                التغيير مرة واحدة شهريًا، يوم 1 الساعة 4:00 صباحًا
-              </Text>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                كلمة التأكيد
-              </Text>
-              <TextInput
-                value={phrase}
-                onChangeText={(t) => {
-                  setPhrase(t);
-                  if (pError) setPError(null);
-                }}
-                placeholder="مثال: أنا قوي ومنضبط"
-                placeholderTextColor={colors.mutedForeground}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.background,
-                    color: colors.foreground,
-                    borderColor: colors.border,
-                  },
-                ]}
-                textAlign="right"
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                أعد كتابتها للتأكيد
-              </Text>
-              <TextInput
-                value={confirm}
-                onChangeText={(t) => {
-                  setConfirm(t);
-                  if (pError) setPError(null);
-                }}
-                placeholder="نفس النص بالضبط"
-                placeholderTextColor={colors.mutedForeground}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.background,
-                    color: colors.foreground,
-                    borderColor: pError ? colors.destructive : colors.border,
-                  },
-                ]}
-                textAlign="right"
-              />
-            </View>
-
-            {pError ? (
-              <Text
-                style={{
-                  color: colors.destructive,
-                  textAlign: "right",
-                  fontFamily: "Inter_500Medium",
-                }}
-              >
-                {pError}
-              </Text>
-            ) : null}
-
-            <PressableScale onPress={handleSave} style={{ width: "100%" }}>
-              <LinearGradient
-                colors={[colors.gradientA, colors.gradientB]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.cta}
-              >
-                <Text style={[styles.ctaText, { color: colors.primaryForeground }]}>
-                  ابدأ نظامي
-                </Text>
-                <Feather name="arrow-left" size={18} color={colors.primaryForeground} />
-              </LinearGradient>
-            </PressableScale>
-          </View>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ===== Main single page =====
   const tasks = visibleTodayTasks();
   const essentials = tasks.filter((t) => t.category === "essential");
   const optionals = tasks.filter((t) => t.category === "optional");
@@ -239,7 +96,13 @@ export default function HomeScreen() {
 
   const handleConfirmComplete = async () => {
     if (!confirmTaskId) return;
-    const res = await completeTask(confirmTaskId, state.passphrase || "");
+    if (!state.passphrase) {
+      showToast("اضبط كلمة التأكيد من الإعدادات أولًا");
+      setConfirmTaskId(null);
+      setSettingsOpen(true);
+      return;
+    }
+    const res = await completeTask(confirmTaskId, state.passphrase);
     if (!res.ok) {
       showToast(res.reason || "فشل التأكيد");
       return;
@@ -250,6 +113,15 @@ export default function HomeScreen() {
   const handleToggleStar = async (taskId: string) => {
     const res = await toggleStar(taskId);
     if (!res.ok && res.reason) showToast(res.reason);
+  };
+
+  const handleTryComplete = (taskId: string) => {
+    if (!state.passphrase) {
+      showToast("اضبط كلمة التأكيد من الإعدادات أولًا");
+      setSettingsOpen(true);
+      return;
+    }
+    setConfirmTaskId(taskId);
   };
 
   return (
@@ -276,17 +148,15 @@ export default function HomeScreen() {
             <Text style={[styles.heading, { color: colors.foreground }]}>
               نظام حياتي
             </Text>
+            {!state.passphrase ? (
+              <Text style={{ color: colors.warning, fontSize: 11, fontFamily: "Inter_500Medium" }}>
+                اضبط كلمة التأكيد من الإعدادات
+              </Text>
+            ) : null}
           </View>
-          <View style={styles.logoSmallWrap}>
-            <LinearGradient
-              colors={[colors.gradientA, colors.gradientD]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoSmall}
-            >
-              <Feather name="sun" size={20} color="#1A1306" />
-            </LinearGradient>
-          </View>
+          <CyclingGradient duration={3500} style={styles.logoSmall}>
+            <Feather name="sun" size={20} color="#1A1306" />
+          </CyclingGradient>
         </View>
 
         {/* Animated gradient progress card */}
@@ -299,9 +169,7 @@ export default function HomeScreen() {
             <View style={styles.progressIconWrap}>
               <Feather
                 name={
-                  essentialsLeft === 0 && totalEssentials > 0
-                    ? "award"
-                    : "target"
+                  essentialsLeft === 0 && totalEssentials > 0 ? "award" : "target"
                 }
                 size={28}
                 color="#1A1306"
@@ -329,15 +197,10 @@ export default function HomeScreen() {
             layout={Layout.springify()}
           >
             <PressableScale onPress={() => setAdding(true)}>
-              <LinearGradient
-                colors={[colors.gradientA, colors.gradientB, colors.gradientD]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.addBtn}
-              >
+              <CyclingGradient duration={2800} style={styles.addBtn}>
                 <Feather name="plus-circle" size={22} color="#1A1306" />
                 <Text style={styles.addBtnText}>إضافة مهمة</Text>
-              </LinearGradient>
+              </CyclingGradient>
             </PressableScale>
           </Animated.View>
         ) : (
@@ -366,7 +229,7 @@ export default function HomeScreen() {
           >
             <Feather name="lock" size={16} color={colors.warning} />
             <Text style={[styles.noticeText, { color: colors.warning }]}>
-              المهام الاختيارية مقفلة حتى تخلص الضرورية
+              المهام الاختيارية وتطبيقاتها مقفلة حتى تخلص الضرورية
             </Text>
           </View>
         ) : null}
@@ -379,12 +242,9 @@ export default function HomeScreen() {
               { backgroundColor: colors.card, borderColor: colors.border },
             ]}
           >
-            <LinearGradient
-              colors={[colors.gradientA + "30", colors.gradientB + "10"]}
-              style={styles.emptyIcon}
-            >
-              <Feather name="sun" size={28} color={colors.primary} />
-            </LinearGradient>
+            <CyclingGradient duration={3500} style={styles.emptyIcon}>
+              <Feather name="sun" size={28} color="#1A1306" />
+            </CyclingGradient>
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
               ابدأ يومك بمهمة
             </Text>
@@ -421,7 +281,7 @@ export default function HomeScreen() {
                     locked={false}
                     timerEndsAt={timerEnds}
                     onStart={() => handleStart(task.id, false)}
-                    onComplete={() => setConfirmTaskId(task.id)}
+                    onComplete={() => handleTryComplete(task.id)}
                     onToggleStar={() => handleToggleStar(task.id)}
                   />
                 </Animated.View>
@@ -459,7 +319,7 @@ export default function HomeScreen() {
                     lockReason={locked ? "خلص الضرورية الأول" : undefined}
                     timerEndsAt={timerEnds}
                     onStart={() => handleStart(task.id, true)}
-                    onComplete={() => setConfirmTaskId(task.id)}
+                    onComplete={() => handleTryComplete(task.id)}
                     onToggleStar={() => handleToggleStar(task.id)}
                   />
                 </Animated.View>
@@ -481,6 +341,27 @@ export default function HomeScreen() {
       <SettingsModal
         visible={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+      />
+
+      <DailyPlanModal
+        visible={dailyPlanOpen}
+        onClose={() => {
+          markDailyPlanShown();
+          setDailyPlanOpen(false);
+        }}
+      />
+
+      <EveningPromptModal
+        visible={eveningOpen}
+        onAddMore={() => {
+          markEveningPromptShown();
+          setEveningOpen(false);
+          setAdding(true);
+        }}
+        onSkip={() => {
+          markEveningPromptShown();
+          setEveningOpen(false);
+        }}
       />
 
       {toast ? (
@@ -507,98 +388,6 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Onboarding
-  heroBox: {
-    height: 240,
-    borderRadius: 28,
-    overflow: "hidden",
-    justifyContent: "flex-end",
-  },
-  heroInner: { padding: 24, gap: 8, alignItems: "flex-end" },
-  logoWrap: { marginBottom: 12 },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.85)",
-  },
-  heroTitle: {
-    color: "#1A1306",
-    fontSize: 36,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-  },
-  heroSub: {
-    color: "rgba(26,19,6,0.85)",
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
-    textAlign: "right",
-  },
-  card: { borderRadius: 24, borderWidth: 1, padding: 20, gap: 14 },
-  cardHeader: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 12,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    textAlign: "right",
-  },
-  cardSub: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    textAlign: "right",
-    marginTop: 2,
-  },
-  warningBox: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  warningText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-    flex: 1,
-    textAlign: "right",
-  },
-  fieldGroup: { gap: 6 },
-  label: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    textAlign: "right",
-  },
-  input: {
-    borderWidth: 1.5,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 16,
-    fontFamily: "Inter_500Medium",
-  },
-  cta: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 16,
-  },
-  ctaText: { fontSize: 16, fontFamily: "Inter_700Bold" },
-
-  // Home
   headerRow: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -615,7 +404,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: "Inter_700Bold",
   },
-  logoSmallWrap: {},
   logoSmall: {
     width: 44,
     height: 44,
@@ -680,6 +468,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 18,
     borderRadius: 18,
+    overflow: "hidden",
   },
   addBtnText: {
     color: "#1A1306",

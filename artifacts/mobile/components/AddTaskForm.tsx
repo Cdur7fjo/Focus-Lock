@@ -1,5 +1,4 @@
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
   StyleSheet,
@@ -10,6 +9,7 @@ import {
 
 import { AppIcon } from "@/components/AppIcon";
 import { AppPickerSheet } from "@/components/AppPickerSheet";
+import { CyclingGradient } from "@/components/CyclingGradient";
 import { PressableScale } from "@/components/PressableScale";
 import { useColors } from "@/hooks/useColors";
 import { useStore } from "@/lib/store";
@@ -20,9 +20,10 @@ const DURATION_PRESETS = [15, 30, 45, 60, 90, 120];
 type Props = {
   onCancel: () => void;
   onSaved: () => void;
+  hideCancel?: boolean;
 };
 
-export function AddTaskForm({ onCancel, onSaved }: Props) {
+export function AddTaskForm({ onCancel, onSaved, hideCancel }: Props) {
   const colors = useColors();
   const { addTask, getApp } = useStore();
 
@@ -38,6 +39,18 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const selectedApps = appIds.map(getApp).filter(Boolean).slice(0, 6);
+
+  const reset = () => {
+    setTitle("");
+    setCategory("essential");
+    setAppIds([]);
+    setHasTimer(false);
+    setDuration(30);
+    setCustomDuration("");
+    setRepeatMode("none");
+    setDays("3");
+    setError(null);
+  };
 
   const handleSave = async () => {
     if (title.trim().length < 2) {
@@ -66,17 +79,15 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
       repeatMode,
       daysCount: dayCount,
     });
+    reset();
     onSaved();
   };
 
   return (
-    <LinearGradient
-      colors={["rgba(250,204,21,0.10)", "rgba(245,158,11,0.04)"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+    <View
       style={[
         styles.card,
-        { borderColor: colors.primary },
+        { borderColor: colors.primary, backgroundColor: colors.card },
       ]}
     >
       {/* Step 1: Category */}
@@ -100,32 +111,22 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
               style={{ flex: 1 }}
             >
               {active ? (
-                <LinearGradient
-                  colors={[colors.gradientA, colors.gradientB]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.toggleBtnActive}
-                >
+                <CyclingGradient duration={3500} style={styles.toggleBtnActive}>
                   <Feather
                     name={c === "essential" ? "alert-circle" : "gift"}
                     size={16}
-                    color={colors.primaryForeground}
+                    color="#1A1306"
                   />
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      { color: colors.primaryForeground },
-                    ]}
-                  >
+                  <Text style={[styles.toggleText, { color: "#1A1306" }]}>
                     {c === "essential" ? "ضرورية" : "غير ضرورية"}
                   </Text>
-                </LinearGradient>
+                </CyclingGradient>
               ) : (
                 <View
                   style={[
                     styles.toggleBtn,
                     {
-                      backgroundColor: colors.card,
+                      backgroundColor: colors.background,
                       borderColor: colors.border,
                     },
                   ]}
@@ -169,7 +170,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
         style={[
           styles.input,
           {
-            backgroundColor: colors.card,
+            backgroundColor: colors.background,
             color: colors.foreground,
             borderColor: error ? colors.destructive : colors.border,
           },
@@ -192,17 +193,14 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
         onPress={() => setPickerOpen(true)}
         style={[
           styles.pickerBtn,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { backgroundColor: colors.background, borderColor: colors.border },
         ]}
       >
         {appIds.length === 0 ? (
           <View style={styles.pickerEmpty}>
             <Feather name="grid" size={18} color={colors.mutedForeground} />
             <Text
-              style={[
-                styles.pickerEmptyText,
-                { color: colors.mutedForeground },
-              ]}
+              style={[styles.pickerEmptyText, { color: colors.mutedForeground }]}
             >
               اختر من تطبيقاتك
             </Text>
@@ -233,11 +231,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
             </View>
           </View>
         )}
-        <Feather
-          name="chevron-down"
-          size={18}
-          color={colors.mutedForeground}
-        />
+        <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
       </PressableScale>
 
       {/* Step 4: Time */}
@@ -287,7 +281,9 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
                   style={[
                     styles.preset,
                     {
-                      backgroundColor: active ? colors.primary : colors.card,
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.background,
                       borderColor: active ? colors.primary : colors.border,
                     },
                   ]}
@@ -317,7 +313,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
             style={[
               styles.input,
               {
-                backgroundColor: colors.card,
+                backgroundColor: colors.background,
                 color: colors.foreground,
                 borderColor: colors.border,
               },
@@ -341,7 +337,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
       <View style={styles.toggleRow}>
         {[
           { key: "none" as RepeatMode, label: "بدون", icon: "minus-circle" },
-          { key: "star" as RepeatMode, label: "نجمة", icon: "star" },
+          { key: "star" as RepeatMode, label: "نجمة (يوم)", icon: "star" },
           { key: "days" as RepeatMode, label: "أيام", icon: "repeat" },
         ].map((opt) => {
           const active = repeatMode === opt.key;
@@ -352,32 +348,22 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
               style={{ flex: 1 }}
             >
               {active ? (
-                <LinearGradient
-                  colors={[colors.gradientA, colors.gradientB]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.repeatBtnActive}
-                >
+                <CyclingGradient duration={3500} style={styles.repeatBtnActive}>
                   <Feather
                     name={opt.icon as keyof typeof Feather.glyphMap}
                     size={14}
-                    color={colors.primaryForeground}
+                    color="#1A1306"
                   />
-                  <Text
-                    style={[
-                      styles.repeatText,
-                      { color: colors.primaryForeground },
-                    ]}
-                  >
+                  <Text style={[styles.repeatText, { color: "#1A1306" }]}>
                     {opt.label}
                   </Text>
-                </LinearGradient>
+                </CyclingGradient>
               ) : (
                 <View
                   style={[
                     styles.repeatBtn,
                     {
-                      backgroundColor: colors.card,
+                      backgroundColor: colors.background,
                       borderColor: colors.border,
                     },
                   ]}
@@ -408,7 +394,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
           style={[
             styles.input,
             {
-              backgroundColor: colors.card,
+              backgroundColor: colors.background,
               color: colors.foreground,
               borderColor: colors.border,
             },
@@ -418,7 +404,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
       ) : null}
       {repeatMode === "star" ? (
         <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
-          النجمة هتفضل قابلة للإلغاء قبل منتصف الليل، وبعد كده هتتقفل لباقي اليوم.
+          النجمة بتعمل تكرار للمهمة لمدة يوم واحد بس بعد إنجازها — مش لحد ما تفصلها.
         </Text>
       ) : null}
 
@@ -428,44 +414,23 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
         </Text>
       ) : null}
 
-      {/* Warning */}
-      <View
-        style={[
-          styles.warning,
-          {
-            borderColor: colors.warning,
-            backgroundColor: colors.warning + "10",
-          },
-        ]}
-      >
-        <Feather name="alert-triangle" size={14} color={colors.warning} />
-        <Text style={[styles.warningText, { color: colors.warning }]}>
-          بعد ما تبدأ المهمة، مينفعش تحذفها — التزم.
-        </Text>
-      </View>
-
       <View style={styles.actions}>
-        <PressableScale
-          onPress={onCancel}
-          style={[styles.btn, { backgroundColor: colors.secondary, flex: 1 }]}
-        >
-          <Text style={[styles.btnText, { color: colors.foreground }]}>
-            إلغاء
-          </Text>
-        </PressableScale>
-        <PressableScale onPress={handleSave} style={{ flex: 1.5 }}>
-          <LinearGradient
-            colors={[colors.gradientA, colors.gradientB]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.btn}
+        {!hideCancel ? (
+          <PressableScale
+            onPress={onCancel}
+            style={[styles.btn, { backgroundColor: colors.secondary, flex: 1 }]}
           >
-            <Text
-              style={[styles.btnText, { color: colors.primaryForeground }]}
-            >
+            <Text style={[styles.btnText, { color: colors.foreground }]}>
+              إلغاء
+            </Text>
+          </PressableScale>
+        ) : null}
+        <PressableScale onPress={handleSave} style={{ flex: 1.5 }}>
+          <CyclingGradient duration={2800} style={styles.btn}>
+            <Text style={[styles.btnText, { color: "#1A1306" }]}>
               أضف المهمة
             </Text>
-          </LinearGradient>
+          </CyclingGradient>
         </PressableScale>
       </View>
 
@@ -478,7 +443,7 @@ export function AddTaskForm({ onCancel, onSaved }: Props) {
           setPickerOpen(false);
         }}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -502,14 +467,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  stepNumText: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-  },
-  stepLabel: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
+  stepNumText: { fontSize: 11, fontFamily: "Inter_700Bold" },
+  stepLabel: { fontSize: 13, fontFamily: "Inter_700Bold" },
   toggleRow: { flexDirection: "row-reverse", gap: 8 },
   toggleBtn: {
     flexDirection: "row-reverse",
@@ -527,6 +486,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 13,
     borderRadius: 14,
+    overflow: "hidden",
   },
   toggleText: { fontFamily: "Inter_700Bold", fontSize: 14 },
   input: {
@@ -612,6 +572,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 11,
     borderRadius: 12,
+    overflow: "hidden",
   },
   repeatText: { fontFamily: "Inter_700Bold", fontSize: 13 },
   helpText: {
@@ -619,20 +580,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "right",
     lineHeight: 16,
-  },
-  warning: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    gap: 8,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    textAlign: "right",
   },
   actions: { flexDirection: "row-reverse", gap: 10, marginTop: 4 },
   btn: {

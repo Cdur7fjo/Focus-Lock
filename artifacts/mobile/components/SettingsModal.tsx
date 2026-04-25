@@ -1,10 +1,7 @@
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
-  Alert,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +9,8 @@ import {
   View,
 } from "react-native";
 
+import { CyclingGradient } from "@/components/CyclingGradient";
+import { PermissionsSection } from "@/components/PermissionsSection";
 import { PressableScale } from "@/components/PressableScale";
 import { useColors } from "@/hooks/useColors";
 import { useStore } from "@/lib/store";
@@ -23,7 +22,13 @@ type Props = {
 
 export function SettingsModal({ visible, onClose }: Props) {
   const colors = useColors();
-  const { state, changePassphrase, canChangePassphrase, resetAll } = useStore();
+  const {
+    state,
+    setPassphrase,
+    changePassphrase,
+    canChangePassphrase,
+  } = useStore();
+
   const [oldP, setOldP] = useState("");
   const [newP, setNewP] = useState("");
   const [confirmP, setConfirmP] = useState("");
@@ -31,7 +36,23 @@ export function SettingsModal({ visible, onClose }: Props) {
     null
   );
 
+  const hasPassphrase = !!state.passphrase;
   const allowed = canChangePassphrase();
+
+  const handleSetFirst = async () => {
+    if (newP.trim().length < 3) {
+      setMsg({ type: "err", text: "كلمة قصيرة" });
+      return;
+    }
+    if (newP.trim() !== confirmP.trim()) {
+      setMsg({ type: "err", text: "النصان غير متطابقين" });
+      return;
+    }
+    await setPassphrase(newP);
+    setMsg({ type: "ok", text: "تم الحفظ" });
+    setNewP("");
+    setConfirmP("");
+  };
 
   const handleChange = async () => {
     if (newP.trim() !== confirmP.trim()) {
@@ -47,28 +68,6 @@ export function SettingsModal({ visible, onClose }: Props) {
     setOldP("");
     setNewP("");
     setConfirmP("");
-  };
-
-  const handleReset = () => {
-    if (Platform.OS === "web") {
-      const ok = window.confirm("هل أنت متأكد؟ سيتم حذف كل البيانات.");
-      if (ok) {
-        resetAll();
-        onClose();
-      }
-    } else {
-      Alert.alert("إعادة التعيين", "سيتم حذف كل المهام والبيانات", [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "حذف الكل",
-          style: "destructive",
-          onPress: async () => {
-            await resetAll();
-            onClose();
-          },
-        },
-      ]);
-    }
   };
 
   return (
@@ -102,7 +101,7 @@ export function SettingsModal({ visible, onClose }: Props) {
             contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 30 }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Passphrase change */}
+            {/* Passphrase */}
             <View
               style={[
                 styles.card,
@@ -110,82 +109,90 @@ export function SettingsModal({ visible, onClose }: Props) {
               ]}
             >
               <View style={styles.cardHeader}>
-                <LinearGradient
-                  colors={[colors.gradientA, colors.gradientB]}
-                  style={styles.iconCircle}
-                >
-                  <Feather name="key" size={18} color={colors.primaryForeground} />
-                </LinearGradient>
+                <CyclingGradient duration={3500} style={styles.iconCircle}>
+                  <Feather name="key" size={18} color="#1A1306" />
+                </CyclingGradient>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.cardTitle, { color: colors.foreground }]}>
-                    تغيير كلمة التأكيد
+                    {hasPassphrase
+                      ? "تغيير كلمة التأكيد"
+                      : "اضبط كلمة التأكيد"}
                   </Text>
                   <Text
                     style={[styles.cardSub, { color: colors.mutedForeground }]}
                   >
-                    مرة واحدة شهريًا، يوم 1 الساعة 4:00 صباحًا
+                    {hasPassphrase
+                      ? "مرة واحدة شهريًا، يوم 1 الساعة 4:00 صباحًا"
+                      : "هتكتبها كل مرة تأكد فيها إنجاز مهمة"}
                   </Text>
                 </View>
               </View>
 
-              <View
-                style={[
-                  styles.statusBox,
-                  {
-                    backgroundColor: allowed.ok
-                      ? colors.success + "15"
-                      : colors.warning + "15",
-                    borderColor: allowed.ok ? colors.success : colors.warning,
-                  },
-                ]}
-              >
-                <Feather
-                  name={allowed.ok ? "check-circle" : "lock"}
-                  size={14}
-                  color={allowed.ok ? colors.success : colors.warning}
-                />
-                <Text
-                  style={[
-                    styles.statusText,
-                    {
-                      color: allowed.ok ? colors.success : colors.warning,
-                    },
-                  ]}
-                >
-                  {allowed.ok ? "النافذة مفتوحة الآن" : allowed.reason}
-                </Text>
-              </View>
+              {hasPassphrase ? (
+                <>
+                  <View
+                    style={[
+                      styles.statusBox,
+                      {
+                        backgroundColor: allowed.ok
+                          ? colors.success + "15"
+                          : colors.warning + "15",
+                        borderColor: allowed.ok
+                          ? colors.success
+                          : colors.warning,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name={allowed.ok ? "check-circle" : "lock"}
+                      size={14}
+                      color={allowed.ok ? colors.success : colors.warning}
+                    />
+                    <Text
+                      style={[
+                        styles.statusText,
+                        {
+                          color: allowed.ok ? colors.success : colors.warning,
+                        },
+                      ]}
+                    >
+                      {allowed.ok ? "النافذة مفتوحة الآن" : allowed.reason}
+                    </Text>
+                  </View>
 
-              <TextInput
-                value={oldP}
-                onChangeText={setOldP}
-                placeholder="كلمة التأكيد الحالية"
-                placeholderTextColor={colors.mutedForeground}
-                editable={allowed.ok}
-                style={[
-                  styles.input,
-                  {
-                    backgroundColor: colors.background,
-                    color: colors.foreground,
-                    borderColor: colors.border,
-                    opacity: allowed.ok ? 1 : 0.5,
-                  },
-                ]}
-                textAlign="right"
-              />
+                  <TextInput
+                    value={oldP}
+                    onChangeText={setOldP}
+                    placeholder="كلمة التأكيد الحالية"
+                    placeholderTextColor={colors.mutedForeground}
+                    editable={allowed.ok}
+                    style={[
+                      styles.input,
+                      {
+                        backgroundColor: colors.background,
+                        color: colors.foreground,
+                        borderColor: colors.border,
+                        opacity: allowed.ok ? 1 : 0.5,
+                      },
+                    ]}
+                    textAlign="right"
+                  />
+                </>
+              ) : null}
+
               <TextInput
                 value={newP}
                 onChangeText={setNewP}
-                placeholder="الكلمة الجديدة"
+                placeholder={hasPassphrase ? "الكلمة الجديدة" : "كلمة التأكيد"}
                 placeholderTextColor={colors.mutedForeground}
-                editable={allowed.ok}
+                editable={!hasPassphrase || allowed.ok}
                 style={[
                   styles.input,
                   {
                     backgroundColor: colors.background,
                     color: colors.foreground,
                     borderColor: colors.border,
-                    opacity: allowed.ok ? 1 : 0.5,
+                    opacity: !hasPassphrase || allowed.ok ? 1 : 0.5,
                   },
                 ]}
                 textAlign="right"
@@ -193,16 +200,16 @@ export function SettingsModal({ visible, onClose }: Props) {
               <TextInput
                 value={confirmP}
                 onChangeText={setConfirmP}
-                placeholder="أعد كتابة الكلمة الجديدة"
+                placeholder="أعد كتابتها للتأكيد"
                 placeholderTextColor={colors.mutedForeground}
-                editable={allowed.ok}
+                editable={!hasPassphrase || allowed.ok}
                 style={[
                   styles.input,
                   {
                     backgroundColor: colors.background,
                     color: colors.foreground,
                     borderColor: colors.border,
-                    opacity: allowed.ok ? 1 : 0.5,
+                    opacity: !hasPassphrase || allowed.ok ? 1 : 0.5,
                   },
                 ]}
                 textAlign="right"
@@ -223,33 +230,33 @@ export function SettingsModal({ visible, onClose }: Props) {
               ) : null}
 
               <PressableScale
-                onPress={handleChange}
-                disabled={!allowed.ok}
+                onPress={hasPassphrase ? handleChange : handleSetFirst}
+                disabled={hasPassphrase && !allowed.ok}
                 style={{ width: "100%" }}
               >
-                <LinearGradient
-                  colors={
-                    allowed.ok
-                      ? [colors.gradientA, colors.gradientB]
-                      : [colors.secondary, colors.secondary]
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                <CyclingGradient
+                  duration={hasPassphrase && !allowed.ok ? 99999 : 2800}
                   style={styles.cta}
+                  colors={
+                    hasPassphrase && !allowed.ok
+                      ? [colors.secondary, colors.secondary, colors.secondary]
+                      : undefined
+                  }
                 >
                   <Text
                     style={[
                       styles.ctaText,
                       {
-                        color: allowed.ok
-                          ? colors.primaryForeground
-                          : colors.mutedForeground,
+                        color:
+                          hasPassphrase && !allowed.ok
+                            ? colors.mutedForeground
+                            : "#1A1306",
                       },
                     ]}
                   >
                     حفظ
                   </Text>
-                </LinearGradient>
+                </CyclingGradient>
               </PressableScale>
             </View>
 
@@ -265,7 +272,7 @@ export function SettingsModal({ visible, onClose }: Props) {
                   {state.tasks.length}
                 </Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
-                  مجموع المهام
+                  مهام اليوم
                 </Text>
               </View>
               <View
@@ -296,22 +303,8 @@ export function SettingsModal({ visible, onClose }: Props) {
               </View>
             </View>
 
-            {/* Reset */}
-            <PressableScale
-              onPress={handleReset}
-              style={[
-                styles.dangerBtn,
-                {
-                  backgroundColor: colors.destructive + "1A",
-                  borderColor: colors.destructive,
-                },
-              ]}
-            >
-              <Feather name="trash-2" size={16} color={colors.destructive} />
-              <Text style={[styles.dangerText, { color: colors.destructive }]}>
-                إعادة تعيين كل البيانات
-              </Text>
-            </PressableScale>
+            {/* Permissions */}
+            <PermissionsSection />
           </ScrollView>
         </View>
       </View>
@@ -328,7 +321,7 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    maxHeight: "90%",
+    maxHeight: "92%",
     borderWidth: 1,
   },
   handle: {
@@ -421,14 +414,4 @@ const styles = StyleSheet.create({
   },
   statNum: { fontSize: 24, fontFamily: "Inter_700Bold" },
   statLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
-  dangerBtn: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  dangerText: { fontFamily: "Inter_700Bold", fontSize: 13 },
 });

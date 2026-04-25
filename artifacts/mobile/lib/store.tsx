@@ -10,9 +10,15 @@ import React, {
 } from "react";
 
 import { SUGGESTED_APPS, getAppFromList } from "./mockApps";
-import type { AppItem, AppState, RepeatMode, Task } from "./types";
+import type {
+  AppItem,
+  AppPermissionKey,
+  AppState,
+  RepeatMode,
+  Task,
+} from "./types";
 
-const STORAGE_KEY = "@hayati/state/v2";
+const STORAGE_KEY = "@hayati/state/v3";
 
 const defaultState: AppState = {
   passphrase: null,
@@ -22,6 +28,9 @@ const defaultState: AppState = {
   customApps: [],
   activeTimerTaskId: null,
   timerStartAt: null,
+  lastDailyPlanDate: null,
+  lastEveningPromptDate: null,
+  permissionsGranted: {},
 };
 
 function newId(): string {
@@ -30,6 +39,14 @@ function newId(): string {
 
 function todayKey(d = new Date()): string {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function dayDiff(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  const da = new Date(ay, am - 1, ad).getTime();
+  const db = new Date(by, bm - 1, bd).getTime();
+  return Math.round((db - da) / (24 * 60 * 60 * 1000));
 }
 
 type Ctx = {
@@ -48,6 +65,7 @@ type Ctx = {
     newPhrase: string
   ) => Promise<{ ok: boolean; reason?: string }>;
   canChangePassphrase: () => { ok: boolean; reason?: string };
+  setPermission: (key: AppPermissionKey, value: boolean) => Promise<void>;
   addTask: (input: {
     title: string;
     category: "essential" | "optional";
@@ -66,7 +84,11 @@ type Ctx = {
   visibleTodayTasks: () => Task[];
   essentialsRemaining: () => Task[];
   allEssentialsDone: () => boolean;
-  resetAll: () => Promise<void>;
+  blockedAppIds: () => Set<string>;
+  shouldShowDailyPlan: () => boolean;
+  markDailyPlanShown: () => Promise<void>;
+  shouldShowEveningPrompt: () => boolean;
+  markEveningPromptShown: () => Promise<void>;
 };
 
 const StoreContext = createContext<Ctx | null>(null);
@@ -98,41 +120,73 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // Daily reset for star/days repeats — runs every minute
+  // Daily cleanup loop — runs every minute
+  // - star: if completed, repeats ONCE the next day, then becomes done permanently
+  // - days: counts down each day
+  // - non-repeating completed tasks: removed the next day
+  // - non-repeating uncompleted tasks: kept (still pending)
   useEffect(() => {
     if (!ready) return;
     const tick = async () => {
       const cur = stateRef.current;
       const today = todayKey();
       let changed = false;
-      const tasks = cur.tasks.map((t) => {
-        if (t.lastResetDate === today) return t;
-        let next = { ...t };
-        if (t.completedAt) {
-          let shouldRepeat = false;
-          if (t.repeatMode === "star" && t.starOn) {
-            shouldRepeat = true;
-          } else if (t.repeatMode === "days" && t.daysRemaining > 1) {
-            shouldRepeat = true;
-            next.daysRemaining = t.daysRemaining - 1;
-          }
-          if (shouldRepeat) {
-            next.completedAt = null;
-            next.startedAt = null;
-            next.starLockedDate = null;
-            next.lastResetDate = today;
-            changed = true;
-            return next;
-          }
+      const tasks: Task[] = [];
+
+      for (const t of cur.tasks) {
+        if (t.lastResetDate === today) {
+          tasks.push(t);
+          continue;
         }
-        if (t.repeatMode === "star" && t.starOn && !t.starLockedDate) {
-          next.starLockedDate = today;
+
+        // Task was created today — initialize lastResetDate
+        if (t.createdDate === today && !t.lastResetDate) {
+          tasks.push({ ...t, lastResetDate: today });
+          changed = true;
+          continue;
+        }
+
+        if (t.completedAt) {
+          if (t.repeatMode === "star" && t.starOn && !t.starRepeatUsed) {
+            // Star = ONE-day repeat: revive tomorrow once, mark used
+            tasks.push({
+              ...t,
+              completedAt: null,
+              startedAt: null,
+              starRepeatUsed: true,
+              starLockedDate: null,
+              lastResetDate: today,
+            });
+            changed = true;
+            continue;
+          }
+          if (t.repeatMode === "days" && t.daysRemaining > 1) {
+            tasks.push({
+              ...t,
+              completedAt: null,
+              startedAt: null,
+              starLockedDate: null,
+              daysRemaining: t.daysRemaining - 1,
+              lastResetDate: today,
+            });
+            changed = true;
+            continue;
+          }
+          // Otherwise: completed task is REMOVED the next day
+          changed = true;
+          continue;
+        } else {
+          // Not completed: lock star if applicable
+          let next = { ...t };
+          if (t.repeatMode === "star" && t.starOn && !t.starLockedDate) {
+            next.starLockedDate = today;
+          }
+          next.lastResetDate = today;
+          tasks.push(next);
           changed = true;
         }
-        next.lastResetDate = today;
-        changed = true;
-        return next;
-      });
+      }
+
       if (changed) await persist({ ...cur, tasks });
     };
     tick();
@@ -148,11 +202,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const endAt = state.timerStartAt + task.durationMinutes * 60_000;
     const remaining = endAt - Date.now();
     if (remaining <= 0) {
-      persist({
-        ...state,
-        activeTimerTaskId: null,
-        timerStartAt: null,
-      });
+      persist({ ...state, activeTimerTaskId: null, timerStartAt: null });
       return;
     }
     const id = setTimeout(() => {
@@ -247,6 +297,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [persist, canChangePassphrase]
   );
 
+  const setPermission = useCallback(
+    async (key: AppPermissionKey, value: boolean) => {
+      await persist({
+        ...stateRef.current,
+        permissionsGranted: {
+          ...stateRef.current.permissionsGranted,
+          [key]: value,
+        },
+      });
+    },
+    [persist]
+  );
+
   const addTask = useCallback(
     async (input: {
       title: string;
@@ -269,6 +332,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         daysCount: input.repeatMode === "days" ? Math.max(1, input.daysCount) : 0,
         daysRemaining:
           input.repeatMode === "days" ? Math.max(1, input.daysCount) : 0,
+        starRepeatUsed: false,
+        createdDate: today,
         createdAt: now,
         startedAt: null,
         completedAt: null,
@@ -333,7 +398,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async (taskId: string, phrase: string) => {
       const cur = stateRef.current;
       if (!cur.passphrase)
-        return { ok: false, reason: "لم يتم ضبط كلمة التأكيد" };
+        return {
+          ok: false,
+          reason: "اضبط كلمة التأكيد من الإعدادات أولًا",
+        };
       if (cur.passphrase !== phrase.trim())
         return { ok: false, reason: "كلمة التأكيد غير مطابقة" };
       const tasks = cur.tasks.map((t) =>
@@ -368,11 +436,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return essentialsRemaining().length === 0;
   }, [essentialsRemaining]);
 
-  const resetAll = useCallback(async () => {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    setState(defaultState);
-    stateRef.current = defaultState;
+  // Apps that are ALLOWED right now (whitelist). The native blocker should
+  // block all OTHER apps. If essentials are still pending, only essential-task
+  // apps are allowed; once essentials are done, optional-task apps unlock too.
+  const blockedAppIds = useCallback((): Set<string> => {
+    const cur = stateRef.current;
+    const essentialsPending = cur.tasks.some(
+      (t) => t.category === "essential" && !t.completedAt
+    );
+    const allowed = new Set<string>();
+    for (const t of cur.tasks) {
+      if (t.completedAt) continue;
+      if (essentialsPending && t.category !== "essential") continue;
+      for (const id of t.appIds) allowed.add(id);
+    }
+    return allowed;
   }, []);
+
+  const shouldShowDailyPlan = useCallback((): boolean => {
+    const cur = stateRef.current;
+    const now = new Date();
+    const hour = now.getHours();
+    const today = todayKey(now);
+    if (cur.lastDailyPlanDate === today) return false;
+    if (hour < 9) return false;
+    return true;
+  }, []);
+
+  const markDailyPlanShown = useCallback(async () => {
+    await persist({ ...stateRef.current, lastDailyPlanDate: todayKey() });
+  }, [persist]);
+
+  const shouldShowEveningPrompt = useCallback((): boolean => {
+    const cur = stateRef.current;
+    const now = new Date();
+    const hour = now.getHours();
+    const today = todayKey(now);
+    if (cur.lastEveningPromptDate === today) return false;
+    if (hour < 19) return false;
+    if (cur.tasks.length === 0) return false;
+    const allDone = cur.tasks.every((t) => t.completedAt);
+    if (!allDone) return false;
+    return true;
+  }, []);
+
+  const markEveningPromptShown = useCallback(async () => {
+    await persist({ ...stateRef.current, lastEveningPromptDate: todayKey() });
+  }, [persist]);
 
   const value = useMemo<Ctx>(
     () => ({
@@ -384,6 +494,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setPassphrase,
       changePassphrase,
       canChangePassphrase,
+      setPermission,
       addTask,
       toggleStar,
       startTask,
@@ -392,7 +503,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       visibleTodayTasks,
       essentialsRemaining,
       allEssentialsDone,
-      resetAll,
+      blockedAppIds,
+      shouldShowDailyPlan,
+      markDailyPlanShown,
+      shouldShowEveningPrompt,
+      markEveningPromptShown,
     }),
     [
       state,
@@ -403,6 +518,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setPassphrase,
       changePassphrase,
       canChangePassphrase,
+      setPermission,
       addTask,
       toggleStar,
       startTask,
@@ -411,7 +527,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       visibleTodayTasks,
       essentialsRemaining,
       allEssentialsDone,
-      resetAll,
+      blockedAppIds,
+      shouldShowDailyPlan,
+      markDailyPlanShown,
+      shouldShowEveningPrompt,
+      markEveningPromptShown,
     ]
   );
 
