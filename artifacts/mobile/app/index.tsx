@@ -20,7 +20,6 @@ import { AnimatedGradient, GradientBg } from "@/components/AnimatedGradient";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { CyclingGradient } from "@/components/CyclingGradient";
 import { DailyPlanModal } from "@/components/DailyPlanModal";
-import { EveningPromptModal } from "@/components/EveningPromptModal";
 import { PressableScale } from "@/components/PressableScale";
 import { SettingsModal } from "@/components/SettingsModal";
 import { TaskCard } from "@/components/TaskCard";
@@ -40,28 +39,24 @@ export default function HomeScreen() {
     toggleStar,
     shouldShowDailyPlan,
     markDailyPlanShown,
-    shouldShowEveningPrompt,
-    markEveningPromptShown,
   } = useStore();
 
   const [adding, setAdding] = useState(false);
   const [confirmTaskId, setConfirmTaskId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dailyPlanOpen, setDailyPlanOpen] = useState(false);
-  const [eveningOpen, setEveningOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
-  // Daily/evening checks — re-evaluate every minute and on mount
+  // Nightly plan check at 9 PM — re-evaluate every minute and on mount
   useEffect(() => {
     if (!ready) return;
     const check = () => {
       if (shouldShowDailyPlan()) setDailyPlanOpen(true);
-      if (shouldShowEveningPrompt()) setEveningOpen(true);
     };
     check();
     const id = setInterval(check, 60_000);
     return () => clearInterval(id);
-  }, [ready, shouldShowDailyPlan, shouldShowEveningPrompt, state.tasks]);
+  }, [ready, shouldShowDailyPlan, state.tasks]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -348,19 +343,6 @@ export default function HomeScreen() {
         onClose={() => {
           markDailyPlanShown();
           setDailyPlanOpen(false);
-        }}
-      />
-
-      <EveningPromptModal
-        visible={eveningOpen}
-        onAddMore={() => {
-          markEveningPromptShown();
-          setEveningOpen(false);
-          setAdding(true);
-        }}
-        onSkip={() => {
-          markEveningPromptShown();
-          setEveningOpen(false);
         }}
       />
 

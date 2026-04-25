@@ -12,10 +12,11 @@ type Props = {
   onClose: () => void;
 };
 
-// Mandatory daily-plan modal that shows after 9 AM the first time the user
-// opens the app each day. They MUST add at least one essential task before
-// they can dismiss it. On native APK with SYSTEM_ALERT_WINDOW, this surface
-// would also be projected over other apps via the accessibility service.
+// Mandatory nightly-plan modal that shows after 9 PM (21:00) the first time
+// the user opens the app each evening. They MUST add at least one essential
+// task for tomorrow before they can dismiss it. On native APK with
+// SYSTEM_ALERT_WINDOW, this surface would also be projected over other apps
+// via the accessibility service.
 export function DailyPlanModal({ visible, onClose }: Props) {
   const colors = useColors();
   const { state, markDailyPlanShown } = useStore();
@@ -42,11 +43,11 @@ export function DailyPlanModal({ visible, onClose }: Props) {
           style={styles.banner}
         >
           <View style={styles.bannerInner}>
-            <Feather name="sunrise" size={32} color="#1A1306" />
+            <Feather name="moon" size={32} color="#1A1306" />
             <View style={{ flex: 1 }}>
-              <Text style={styles.bannerTitle}>صباح الخير 🌅</Text>
+              <Text style={styles.bannerTitle}>مساء الخير 🌙</Text>
               <Text style={styles.bannerSub}>
-                خطّط ليومك قبل ما تفتح أي تطبيق
+                خطّط مهامك لبكرة قبل ما تنام
               </Text>
             </View>
           </View>
@@ -80,12 +81,12 @@ export function DailyPlanModal({ visible, onClose }: Props) {
                 ]}
               >
                 {canClose
-                  ? `جاهز! عندك ${todaysEssentials.length} ضرورية ${
+                  ? `جاهز لبكرة! عندك ${todaysEssentials.length} ضرورية ${
                       todaysOptional.length
                         ? `و ${todaysOptional.length} اختيارية`
                         : ""
                     }`
-                  : "أضف على الأقل مهمة ضرورية واحدة لليوم"}
+                  : "أضف على الأقل مهمة ضرورية واحدة لبكرة"}
               </Text>
               <Text
                 style={[
@@ -99,7 +100,7 @@ export function DailyPlanModal({ visible, onClose }: Props) {
                 ]}
               >
                 {canClose
-                  ? "تقدر تقفل النافذة وتبدأ يومك"
+                  ? "تقدر تقفل النافذة وترتاح"
                   : "اختياري كمان لو حاب"}
               </Text>
             </View>
@@ -134,7 +135,7 @@ export function DailyPlanModal({ visible, onClose }: Props) {
                   paddingHorizontal: 16,
                 }}
               >
-                {canClose ? "تمام، ابدأ يومي" : "أضف ضرورية أولًا"}
+                {canClose ? "تمام، تصبح على خير" : "أضف ضرورية لبكرة أولًا"}
               </Text>
             </CyclingGradient>
           </View>

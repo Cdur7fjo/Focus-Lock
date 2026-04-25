@@ -1,21 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   StyleProp,
   StyleSheet,
   View,
   ViewStyle,
 } from "react-native";
-import Animated, {
-  Easing,
-  interpolateColor,
-  useAnimatedProps,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
-
-const AnimatedLG = Animated.createAnimatedComponent(LinearGradient);
 
 // 3 cycling color stops — we shift through gold/sun/amber in a continuous loop.
 const GOLD_PALETTE = ["#FACC15", "#F59E0B", "#FB923C"];
@@ -30,8 +20,26 @@ type Props = {
   borderRadius?: number;
 };
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function lerp(a: number, b: number, t: number) {
+  return Math.round(a + (b - a) * t);
+}
+
+function lerpColor(c1: string, c2: string, t: number): string {
+  const [r1, g1, b1] = hexToRgb(c1);
+  const [r2, g2, b2] = hexToRgb(c2);
+  return `rgb(${lerp(r1, r2, t)}, ${lerp(g1, g2, t)}, ${lerp(b1, b2, t)})`;
+}
+
 // A LinearGradient whose 2 color stops continuously cycle through a 3-color
-// palette so the surface always feels alive.
+// palette so the surface always feels alive. Uses setState-driven animation
+// (reliable on web) instead of reanimated worklets which are flaky with
+// LinearGradient's color prop on web.
 export function CyclingGradient({
   colors: palette = GOLD_PALETTE,
   duration = 3500,
@@ -41,37 +49,34 @@ export function CyclingGradient({
   children,
   borderRadius,
 }: Props) {
-  const t = useSharedValue(0);
+  const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    t.value = withRepeat(
-      withTiming(1, { duration, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      false
-    );
-  }, [t, duration]);
+    const startedAt = Date.now();
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - startedAt) % duration;
+      setPhase(elapsed / duration);
+    }, 80);
+    return () => clearInterval(id);
+  }, [duration]);
 
-  const animatedProps = useAnimatedProps(() => {
-    const phase = t.value * 3;
-    const i = Math.floor(phase) % 3;
-    const k = phase - Math.floor(phase);
-    const c1 = interpolateColor(
-      k,
-      [0, 1],
-      [palette[i % palette.length], palette[(i + 1) % palette.length]]
-    );
-    const c2 = interpolateColor(
-      k,
-      [0, 1],
-      [palette[(i + 1) % palette.length], palette[(i + 2) % palette.length]]
-    );
-    return { colors: [c1, c2] as unknown as string[] };
-  });
+  const total = phase * palette.length;
+  const i = Math.floor(total) % palette.length;
+  const k = total - Math.floor(total);
+  const c1 = lerpColor(
+    palette[i % palette.length],
+    palette[(i + 1) % palette.length],
+    k
+  );
+  const c2 = lerpColor(
+    palette[(i + 1) % palette.length],
+    palette[(i + 2) % palette.length],
+    k
+  );
 
   return (
-    <AnimatedLG
-      animatedProps={animatedProps as never}
-      colors={palette as unknown as readonly [string, string, ...string[]]}
+    <LinearGradient
+      colors={[c1, c2] as unknown as readonly [string, string, ...string[]]}
       start={start}
       end={end}
       style={[
@@ -81,6 +86,7 @@ export function CyclingGradient({
     >
       <View style={StyleSheet.absoluteFill} pointerEvents="none" />
       {children}
-    </AnimatedLG>
+    </LinearGradient>
   );
 }
+

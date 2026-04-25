@@ -10,6 +10,7 @@ import {
 } from "react-native";
 
 import { CyclingGradient } from "@/components/CyclingGradient";
+import { GuardStatusCard } from "@/components/GuardStatusCard";
 import { PermissionsSection } from "@/components/PermissionsSection";
 import { PressableScale } from "@/components/PressableScale";
 import { useColors } from "@/hooks/useColors";
@@ -101,6 +102,9 @@ export function SettingsModal({ visible, onClose }: Props) {
             contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 30 }}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Guard status — always at top */}
+            <GuardStatusCard />
+
             {/* Passphrase */}
             <View
               style={[

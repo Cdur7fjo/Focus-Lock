@@ -453,13 +453,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return allowed;
   }, []);
 
+  // Daily planning window: every night at 9 PM (21:00). User MUST plan
+  // tomorrow's tasks before they can dismiss. Tracked per-day so it shows
+  // exactly once per night.
   const shouldShowDailyPlan = useCallback((): boolean => {
     const cur = stateRef.current;
     const now = new Date();
     const hour = now.getHours();
     const today = todayKey(now);
     if (cur.lastDailyPlanDate === today) return false;
-    if (hour < 9) return false;
+    if (hour < 21) return false;
     return true;
   }, []);
 
