@@ -1,38 +1,41 @@
 const colors = {
   light: {
-    text: "#0B0F1A",
-    tint: "#6366F1",
+    text: "#FFF8E7",
+    tint: "#FBBF24",
 
-    background: "#0B0F1A",
-    foreground: "#F5F7FF",
+    background: "#0D0904",
+    foreground: "#FFF8E7",
 
-    card: "#141A2B",
-    cardForeground: "#F5F7FF",
-    cardElevated: "#1B233A",
+    card: "#1A1306",
+    cardForeground: "#FFF8E7",
+    cardElevated: "#241A09",
 
-    primary: "#7C5CFF",
-    primaryForeground: "#FFFFFF",
+    primary: "#FBBF24",
+    primaryForeground: "#1A1306",
 
-    secondary: "#1F2740",
-    secondaryForeground: "#E5E9F5",
+    secondary: "#2A1F0C",
+    secondaryForeground: "#FFE9B0",
 
-    muted: "#1A2236",
-    mutedForeground: "#8A93AE",
+    muted: "#1F1709",
+    mutedForeground: "#A89270",
 
-    accent: "#22D3EE",
-    accentForeground: "#0B0F1A",
+    accent: "#F59E0B",
+    accentForeground: "#1A1306",
 
     success: "#34D399",
-    warning: "#FBBF24",
-    destructive: "#F43F5E",
+    warning: "#F97316",
+    destructive: "#EF4444",
     destructiveForeground: "#FFFFFF",
 
-    border: "#222B45",
-    input: "#222B45",
+    border: "#3A2C12",
+    input: "#3A2C12",
 
-    gradientA: "#7C5CFF",
-    gradientB: "#22D3EE",
-    gradientC: "#F472B6",
+    gradientA: "#FACC15",
+    gradientB: "#F59E0B",
+    gradientC: "#FCD34D",
+    gradientD: "#FB923C",
+    gold: "#D4A017",
+    sun: "#FFD166",
   },
   radius: 18,
 };

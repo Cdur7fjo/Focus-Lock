@@ -1,11 +1,12 @@
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { AppIcon } from "@/components/AppIcon";
 import { PressableScale } from "@/components/PressableScale";
 import { useColors } from "@/hooks/useColors";
-import { getAppById } from "@/lib/mockApps";
+import { useStore } from "@/lib/store";
 import type { Task } from "@/lib/types";
 
 type Props = {
@@ -36,6 +37,7 @@ export function TaskCard({
   timerEndsAt,
 }: Props) {
   const colors = useColors();
+  const { getApp } = useStore();
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export function TaskCard({
     return () => clearInterval(id);
   }, [timerEndsAt]);
 
-  const apps = task.appIds.map(getAppById).filter(Boolean).slice(0, 5);
+  const apps = task.appIds.map(getApp).filter(Boolean).slice(0, 5);
   const more = task.appIds.length - apps.length;
   const isCompleted = !!task.completedAt;
   const isStarted = !!task.startedAt && !isCompleted;
@@ -53,215 +55,256 @@ export function TaskCard({
   return (
     <View
       style={[
-        styles.card,
+        styles.cardWrap,
         {
-          backgroundColor: isCompleted ? colors.muted : colors.card,
-          borderColor: isEssential ? colors.primary : colors.border,
-          borderWidth: isEssential ? 1.5 : 1,
-          opacity: locked ? 0.6 : 1,
+          opacity: locked ? 0.55 : 1,
         },
       ]}
     >
-      <View style={styles.headerRow}>
-        <View style={styles.titleCol}>
-          <View style={styles.badgeRow}>
-            <View
+      <LinearGradient
+        colors={
+          isCompleted
+            ? [colors.muted, colors.muted]
+            : isEssential
+            ? ["rgba(250,204,21,0.12)", "rgba(245,158,11,0.04)"]
+            : ["rgba(252,211,77,0.06)", "rgba(245,158,11,0.02)"]
+        }
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[
+          styles.card,
+          {
+            borderColor: isEssential ? colors.primary : colors.border,
+            borderWidth: isEssential ? 1.5 : 1,
+          },
+        ]}
+      >
+        <View style={styles.headerRow}>
+          <View style={styles.titleCol}>
+            <View style={styles.badgeRow}>
+              <View
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: isEssential
+                      ? colors.primary + "33"
+                      : colors.accent + "22",
+                    borderColor: isEssential ? colors.primary : colors.accent,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.badgeText,
+                    {
+                      color: isEssential ? colors.primary : colors.accent,
+                    },
+                  ]}
+                >
+                  {isEssential ? "ضرورية" : "اختيارية"}
+                </Text>
+              </View>
+              {task.repeatMode === "days" && task.daysCount > 0 ? (
+                <View
+                  style={[styles.badge, { backgroundColor: colors.secondary }]}
+                >
+                  <Text
+                    style={[styles.badgeText, { color: colors.foreground }]}
+                  >
+                    {task.daysRemaining}/{task.daysCount} يوم
+                  </Text>
+                </View>
+              ) : null}
+              {task.durationMinutes ? (
+                <View
+                  style={[styles.badge, { backgroundColor: colors.secondary }]}
+                >
+                  <Feather
+                    name="clock"
+                    size={11}
+                    color={colors.mutedForeground}
+                  />
+                  <Text
+                    style={[styles.badgeText, { color: colors.foreground }]}
+                  >
+                    {task.durationMinutes} دقيقة
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <Text
               style={[
-                styles.badge,
+                styles.title,
                 {
-                  backgroundColor: isEssential
-                    ? colors.primary + "33"
-                    : colors.accent + "22",
-                  borderColor: isEssential ? colors.primary : colors.accent,
+                  color: colors.foreground,
+                  textDecorationLine: isCompleted ? "line-through" : "none",
+                  opacity: isCompleted ? 0.6 : 1,
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.badgeText,
-                  { color: isEssential ? colors.primary : colors.accent },
-                ]}
-              >
-                {isEssential ? "ضرورية" : "اختيارية"}
-              </Text>
-            </View>
-            {task.repeatMode === "days" && task.daysCount > 0 ? (
-              <View
-                style={[styles.badge, { backgroundColor: colors.secondary }]}
-              >
-                <Text
-                  style={[styles.badgeText, { color: colors.foreground }]}
-                >
-                  {task.daysRemaining}/{task.daysCount} يوم
-                </Text>
-              </View>
-            ) : null}
-            {task.durationMinutes ? (
-              <View
-                style={[styles.badge, { backgroundColor: colors.secondary }]}
-              >
-                <Feather
-                  name="clock"
-                  size={11}
-                  color={colors.mutedForeground}
-                />
-                <Text
-                  style={[styles.badgeText, { color: colors.foreground }]}
-                >
-                  {task.durationMinutes} دقيقة
-                </Text>
-              </View>
-            ) : null}
+              {task.title}
+            </Text>
           </View>
-          <Text
-            style={[
-              styles.title,
-              {
-                color: colors.foreground,
-                textDecorationLine: isCompleted ? "line-through" : "none",
-                opacity: isCompleted ? 0.6 : 1,
-              },
-            ]}
-          >
-            {task.title}
-          </Text>
-        </View>
 
-        {task.repeatMode === "star" ? (
-          <PressableScale
-            onPress={onToggleStar}
-            style={[
-              styles.starBtn,
-              {
-                backgroundColor: task.starOn
-                  ? colors.warning + "22"
-                  : colors.secondary,
-                borderColor: task.starOn ? colors.warning : colors.border,
-              },
-            ]}
-          >
-            <Feather
-              name="star"
-              size={20}
-              color={task.starOn ? colors.warning : colors.mutedForeground}
-            />
-          </PressableScale>
-        ) : null}
-      </View>
-
-      {apps.length > 0 ? (
-        <View style={styles.appsRow}>
-          <Text style={[styles.appsLabel, { color: colors.mutedForeground }]}>
-            التطبيقات المسموحة
-          </Text>
-          <View style={styles.appsChips}>
-            {more > 0 ? (
-              <View
-                style={[
-                  styles.moreChip,
-                  { backgroundColor: colors.secondary, borderColor: colors.border },
-                ]}
-              >
-                <Text style={[styles.moreText, { color: colors.foreground }]}>
-                  +{more}
-                </Text>
-              </View>
-            ) : null}
-            {apps.map((a) => (
-              <AppIcon key={a!.id} app={a!} size={36} />
-            ))}
-          </View>
-        </View>
-      ) : null}
-
-      {isStarted && timerEndsAt ? (
-        <View
-          style={[
-            styles.timerBanner,
-            { backgroundColor: colors.accent + "18", borderColor: colors.accent },
-          ]}
-        >
-          <Feather name="zap" size={16} color={colors.accent} />
-          <Text style={[styles.timerText, { color: colors.accent }]}>
-            متبقي {formatRemaining(timerEndsAt - now)}
-          </Text>
-        </View>
-      ) : null}
-
-      {locked && !isCompleted ? (
-        <View
-          style={[
-            styles.lockBanner,
-            { backgroundColor: colors.muted, borderColor: colors.border },
-          ]}
-        >
-          <Feather name="lock" size={14} color={colors.mutedForeground} />
-          <Text style={[styles.lockText, { color: colors.mutedForeground }]}>
-            {lockReason || "أكمل المهام الضرورية أولًا"}
-          </Text>
-        </View>
-      ) : null}
-
-      {!isCompleted ? (
-        <View style={styles.actions}>
-          {!isStarted ? (
+          {task.repeatMode === "star" ? (
             <PressableScale
-              onPress={onStart}
-              disabled={locked}
+              onPress={onToggleStar}
               style={[
-                styles.actionBtn,
+                styles.starBtn,
                 {
-                  backgroundColor: locked ? colors.secondary : colors.primary,
+                  backgroundColor: task.starOn
+                    ? colors.primary + "22"
+                    : colors.secondary,
+                  borderColor: task.starOn ? colors.primary : colors.border,
                 },
               ]}
             >
               <Feather
-                name="play"
-                size={16}
-                color={locked ? colors.mutedForeground : "#FFFFFF"}
+                name="star"
+                size={20}
+                color={task.starOn ? colors.primary : colors.mutedForeground}
               />
-              <Text
-                style={[
-                  styles.actionText,
-                  { color: locked ? colors.mutedForeground : "#FFFFFF" },
-                ]}
-              >
-                ابدأ المهمة
-              </Text>
             </PressableScale>
-          ) : (
-            <PressableScale
-              onPress={onComplete}
-              style={[
-                styles.actionBtn,
-                { backgroundColor: colors.success },
-              ]}
+          ) : null}
+        </View>
+
+        {apps.length > 0 ? (
+          <View style={styles.appsRow}>
+            <Text
+              style={[styles.appsLabel, { color: colors.mutedForeground }]}
             >
-              <Feather name="check" size={16} color="#FFFFFF" />
-              <Text style={[styles.actionText, { color: "#FFFFFF" }]}>
-                أكدت الإنجاز
-              </Text>
-            </PressableScale>
-          )}
-        </View>
-      ) : (
-        <View
-          style={[
-            styles.doneBanner,
-            { backgroundColor: colors.success + "1A", borderColor: colors.success },
-          ]}
-        >
-          <Feather name="check-circle" size={16} color={colors.success} />
-          <Text style={[styles.doneText, { color: colors.success }]}>
-            مكتملة اليوم
-          </Text>
-        </View>
-      )}
+              التطبيقات المسموحة
+            </Text>
+            <View style={styles.appsChips}>
+              {more > 0 ? (
+                <View
+                  style={[
+                    styles.moreChip,
+                    {
+                      backgroundColor: colors.secondary,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.moreText, { color: colors.foreground }]}
+                  >
+                    +{more}
+                  </Text>
+                </View>
+              ) : null}
+              {apps.map((a) => (
+                <AppIcon key={a!.id} app={a!} size={36} />
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {isStarted && timerEndsAt ? (
+          <View
+            style={[
+              styles.timerBanner,
+              {
+                backgroundColor: colors.primary + "18",
+                borderColor: colors.primary,
+              },
+            ]}
+          >
+            <Feather name="zap" size={16} color={colors.primary} />
+            <Text style={[styles.timerText, { color: colors.primary }]}>
+              متبقي {formatRemaining(timerEndsAt - now)}
+            </Text>
+          </View>
+        ) : null}
+
+        {locked && !isCompleted ? (
+          <View
+            style={[
+              styles.lockBanner,
+              { backgroundColor: colors.muted, borderColor: colors.border },
+            ]}
+          >
+            <Feather name="lock" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.lockText, { color: colors.mutedForeground }]}>
+              {lockReason || "أكمل المهام الضرورية أولًا"}
+            </Text>
+          </View>
+        ) : null}
+
+        {!isCompleted ? (
+          <View style={styles.actions}>
+            {!isStarted ? (
+              <PressableScale
+                onPress={onStart}
+                disabled={locked}
+                style={{ flex: 1 }}
+              >
+                <LinearGradient
+                  colors={
+                    locked
+                      ? [colors.secondary, colors.secondary]
+                      : [colors.gradientA, colors.gradientB]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.actionBtn}
+                >
+                  <Feather
+                    name="play"
+                    size={16}
+                    color={locked ? colors.mutedForeground : "#1A1306"}
+                  />
+                  <Text
+                    style={[
+                      styles.actionText,
+                      {
+                        color: locked ? colors.mutedForeground : "#1A1306",
+                      },
+                    ]}
+                  >
+                    ابدأ المهمة
+                  </Text>
+                </LinearGradient>
+              </PressableScale>
+            ) : (
+              <PressableScale onPress={onComplete} style={{ flex: 1 }}>
+                <LinearGradient
+                  colors={[colors.success, "#10B981"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.actionBtn}
+                >
+                  <Feather name="check" size={16} color="#FFFFFF" />
+                  <Text style={[styles.actionText, { color: "#FFFFFF" }]}>
+                    أكدت الإنجاز
+                  </Text>
+                </LinearGradient>
+              </PressableScale>
+            )}
+          </View>
+        ) : (
+          <View
+            style={[
+              styles.doneBanner,
+              {
+                backgroundColor: colors.success + "1A",
+                borderColor: colors.success,
+              },
+            ]}
+          >
+            <Feather name="check-circle" size={16} color={colors.success} />
+            <Text style={[styles.doneText, { color: colors.success }]}>
+              مكتملة اليوم
+            </Text>
+          </View>
+        )}
+      </LinearGradient>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cardWrap: { borderRadius: 22 },
   card: {
     borderRadius: 22,
     padding: 16,
@@ -272,15 +315,8 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
   },
-  titleCol: {
-    flex: 1,
-    gap: 8,
-  },
-  badgeRow: {
-    flexDirection: "row-reverse",
-    flexWrap: "wrap",
-    gap: 6,
-  },
+  titleCol: { flex: 1, gap: 8 },
+  badgeRow: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 6 },
   badge: {
     flexDirection: "row-reverse",
     alignItems: "center",
@@ -291,10 +327,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
-  badgeText: {
-    fontSize: 11,
-    fontFamily: "Inter_600SemiBold",
-  },
+  badgeText: { fontSize: 11, fontFamily: "Inter_700Bold" },
   title: {
     fontSize: 18,
     fontFamily: "Inter_700Bold",
@@ -309,19 +342,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  appsRow: {
-    gap: 8,
-  },
+  appsRow: { gap: 8 },
   appsLabel: {
     fontSize: 11,
     fontFamily: "Inter_500Medium",
     textAlign: "right",
   },
-  appsChips: {
-    flexDirection: "row-reverse",
-    gap: 6,
-    flexWrap: "wrap",
-  },
+  appsChips: { flexDirection: "row-reverse", gap: 6, flexWrap: "wrap" },
   moreChip: {
     width: 36,
     height: 36,
@@ -330,10 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  moreText: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-  },
+  moreText: { fontSize: 12, fontFamily: "Inter_700Bold" },
   timerBanner: {
     flexDirection: "row-reverse",
     gap: 8,
@@ -343,10 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  timerText: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 14,
-  },
+  timerText: { fontFamily: "Inter_700Bold", fontSize: 14 },
   lockBanner: {
     flexDirection: "row-reverse",
     gap: 6,
@@ -356,14 +377,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  lockText: {
-    fontFamily: "Inter_500Medium",
-    fontSize: 12,
-  },
-  actions: {
-    flexDirection: "row-reverse",
-    gap: 8,
-  },
+  lockText: { fontFamily: "Inter_500Medium", fontSize: 12 },
+  actions: { flexDirection: "row-reverse", gap: 8 },
   actionBtn: {
     flex: 1,
     flexDirection: "row-reverse",
@@ -373,10 +388,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
   },
-  actionText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
+  actionText: { fontFamily: "Inter_700Bold", fontSize: 14 },
   doneBanner: {
     flexDirection: "row-reverse",
     gap: 8,
@@ -386,8 +398,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  doneText: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 13,
-  },
+  doneText: { fontFamily: "Inter_700Bold", fontSize: 13 },
 });

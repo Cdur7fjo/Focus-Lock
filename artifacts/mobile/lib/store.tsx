@@ -9,15 +9,17 @@ import React, {
   useState,
 } from "react";
 
-import type { AppState, RepeatMode, Task } from "./types";
+import { SUGGESTED_APPS, getAppFromList } from "./mockApps";
+import type { AppItem, AppState, RepeatMode, Task } from "./types";
 
-const STORAGE_KEY = "@hayati/state/v1";
+const STORAGE_KEY = "@hayati/state/v2";
 
 const defaultState: AppState = {
   passphrase: null,
   passphraseSetAt: null,
   passphraseLastChangedAt: null,
   tasks: [],
+  customApps: [],
   activeTimerTaskId: null,
   timerStartAt: null,
 };
@@ -30,17 +32,21 @@ function todayKey(d = new Date()): string {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 
-function startOfTomorrow(): number {
-  const d = new Date();
-  d.setHours(24, 0, 0, 0);
-  return d.getTime();
-}
-
 type Ctx = {
   state: AppState;
   ready: boolean;
+  allApps: () => AppItem[];
+  getApp: (id: string) => AppItem | undefined;
+  addCustomApp: (
+    name: string,
+    color: string,
+    icon: string
+  ) => Promise<AppItem>;
   setPassphrase: (phrase: string) => Promise<void>;
-  changePassphrase: (oldPhrase: string, newPhrase: string) => Promise<{ ok: boolean; reason?: string }>;
+  changePassphrase: (
+    oldPhrase: string,
+    newPhrase: string
+  ) => Promise<{ ok: boolean; reason?: string }>;
   canChangePassphrase: () => { ok: boolean; reason?: string };
   addTask: (input: {
     title: string;
@@ -52,13 +58,14 @@ type Ctx = {
   }) => Promise<Task>;
   toggleStar: (taskId: string) => Promise<{ ok: boolean; reason?: string }>;
   startTask: (taskId: string) => Promise<void>;
-  completeTask: (taskId: string, phrase: string) => Promise<{ ok: boolean; reason?: string }>;
+  completeTask: (
+    taskId: string,
+    phrase: string
+  ) => Promise<{ ok: boolean; reason?: string }>;
   stopTimer: () => Promise<void>;
   visibleTodayTasks: () => Task[];
   essentialsRemaining: () => Task[];
   allEssentialsDone: () => boolean;
-  unlockedAppIds: () => Set<string>;
-  isAppUnlocked: (appId: string) => boolean;
   resetAll: () => Promise<void>;
 };
 
@@ -75,12 +82,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = next;
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }, []);
 
-  // Load
   useEffect(() => {
     (async () => {
       try {
@@ -89,15 +93,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(raw) as AppState;
           setState({ ...defaultState, ...parsed });
         }
-      } catch {
-        // ignore
-      } finally {
-        setReady(true);
-      }
+      } catch {}
+      setReady(true);
     })();
   }, []);
 
-  // Daily reset for star/days repeats — runs on mount and every minute
+  // Daily reset for star/days repeats — runs every minute
   useEffect(() => {
     if (!ready) return;
     const tick = async () => {
@@ -106,10 +107,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       let changed = false;
       const tasks = cur.tasks.map((t) => {
         if (t.lastResetDate === today) return t;
-        // it's a new day for this task
         let next = { ...t };
         if (t.completedAt) {
-          // was completed — decide whether to re-create for today
           let shouldRepeat = false;
           if (t.repeatMode === "star" && t.starOn) {
             shouldRepeat = true;
@@ -126,7 +125,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             return next;
           }
         }
-        // lock star toggle at midnight if star is on
         if (t.repeatMode === "star" && t.starOn && !t.starLockedDate) {
           next.starLockedDate = today;
           changed = true;
@@ -135,9 +133,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         changed = true;
         return next;
       });
-      if (changed) {
-        await persist({ ...cur, tasks });
-      }
+      if (changed) await persist({ ...cur, tasks });
     };
     tick();
     const id = setInterval(tick, 60_000);
@@ -152,15 +148,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const endAt = state.timerStartAt + task.durationMinutes * 60_000;
     const remaining = endAt - Date.now();
     if (remaining <= 0) {
-      // expired
-      persist({ ...state, activeTimerTaskId: null, timerStartAt: null });
+      persist({
+        ...state,
+        activeTimerTaskId: null,
+        timerStartAt: null,
+      });
       return;
     }
     const id = setTimeout(() => {
-      persist({ ...stateRef.current, activeTimerTaskId: null, timerStartAt: null });
+      persist({
+        ...stateRef.current,
+        activeTimerTaskId: null,
+        timerStartAt: null,
+      });
     }, remaining);
     return () => clearTimeout(id);
   }, [state.activeTimerTaskId, state.timerStartAt, state.tasks, persist, state]);
+
+  const allApps = useCallback((): AppItem[] => {
+    return [...stateRef.current.customApps, ...SUGGESTED_APPS];
+  }, []);
+
+  const getApp = useCallback((id: string): AppItem | undefined => {
+    return getAppFromList(id, [stateRef.current.customApps, SUGGESTED_APPS]);
+  }, []);
+
+  const addCustomApp = useCallback(
+    async (name: string, color: string, icon: string) => {
+      const app: AppItem = {
+        id: "c_" + newId(),
+        name: name.trim(),
+        color,
+        icon,
+        custom: true,
+      };
+      await persist({
+        ...stateRef.current,
+        customApps: [app, ...stateRef.current.customApps],
+      });
+      return app;
+    },
+    [persist]
+  );
 
   const setPassphrase = useCallback(
     async (phrase: string) => {
@@ -175,25 +204,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [persist]
   );
 
-  const canChangePassphrase = useCallback((): { ok: boolean; reason?: string } => {
+  const canChangePassphrase = useCallback((): {
+    ok: boolean;
+    reason?: string;
+  } => {
     const cur = stateRef.current;
     if (!cur.passphraseLastChangedAt) return { ok: true };
     const now = new Date();
-    if (now.getDate() !== 1) {
-      return { ok: false, reason: "تغيير كلمة التأكيد متاح فقط أول يوم في الشهر" };
-    }
-    if (now.getHours() !== 4) {
-      return { ok: false, reason: "النافذة المسموح بها الساعة 4 صباحًا فقط" };
-    }
-    if (now.getMinutes() > 0) {
-      return { ok: false, reason: "لديك دقيقة واحدة فقط بين 4:00 و 4:01 صباحًا" };
-    }
+    if (now.getDate() !== 1)
+      return { ok: false, reason: "متاح فقط أول يوم في الشهر" };
+    if (now.getHours() !== 4)
+      return { ok: false, reason: "النافذة الساعة 4 صباحًا" };
+    if (now.getMinutes() > 0)
+      return { ok: false, reason: "دقيقة واحدة فقط بين 4:00 و 4:01" };
     const last = new Date(cur.passphraseLastChangedAt);
     if (
       last.getFullYear() === now.getFullYear() &&
       last.getMonth() === now.getMonth()
     ) {
-      return { ok: false, reason: "تم تغيير كلمة التأكيد هذا الشهر بالفعل" };
+      return { ok: false, reason: "تم التغيير هذا الشهر بالفعل" };
     }
     return { ok: true };
   }, []);
@@ -202,14 +231,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async (oldPhrase: string, newPhrase: string) => {
       const cur = stateRef.current;
       if (!cur.passphrase) return { ok: false, reason: "لم يتم ضبط كلمة بعد" };
-      if (cur.passphrase !== oldPhrase.trim()) {
+      if (cur.passphrase !== oldPhrase.trim())
         return { ok: false, reason: "كلمة التأكيد الحالية غير صحيحة" };
-      }
       const allowed = canChangePassphrase();
       if (!allowed.ok) return allowed;
-      if (newPhrase.trim().length < 3) {
+      if (newPhrase.trim().length < 3)
         return { ok: false, reason: "كلمة التأكيد قصيرة جدًا" };
-      }
       await persist({
         ...cur,
         passphrase: newPhrase.trim(),
@@ -240,14 +267,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         repeatMode: input.repeatMode,
         starOn: input.repeatMode === "star",
         daysCount: input.repeatMode === "days" ? Math.max(1, input.daysCount) : 0,
-        daysRemaining: input.repeatMode === "days" ? Math.max(1, input.daysCount) : 0,
+        daysRemaining:
+          input.repeatMode === "days" ? Math.max(1, input.daysCount) : 0,
         createdAt: now,
         startedAt: null,
         completedAt: null,
         lastResetDate: today,
         starLockedDate: null,
       };
-      await persist({ ...stateRef.current, tasks: [task, ...stateRef.current.tasks] });
+      await persist({
+        ...stateRef.current,
+        tasks: [task, ...stateRef.current.tasks],
+      });
       return task;
     },
     [persist]
@@ -258,13 +289,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const cur = stateRef.current;
       const task = cur.tasks.find((t) => t.id === taskId);
       if (!task) return { ok: false, reason: "غير موجود" };
-      if (task.repeatMode !== "star") {
+      if (task.repeatMode !== "star")
         return { ok: false, reason: "هذه المهمة بنظام عدد أيام" };
-      }
       const today = todayKey();
-      if (task.starLockedDate === today) {
+      if (task.starLockedDate === today)
         return { ok: false, reason: "تم قفل النجمة بعد منتصف الليل" };
-      }
       const tasks = cur.tasks.map((t) =>
         t.id === taskId ? { ...t, starOn: !t.starOn } : t
       );
@@ -303,10 +332,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const completeTask = useCallback(
     async (taskId: string, phrase: string) => {
       const cur = stateRef.current;
-      if (!cur.passphrase) return { ok: false, reason: "لم يتم ضبط كلمة التأكيد" };
-      if (cur.passphrase !== phrase.trim()) {
+      if (!cur.passphrase)
+        return { ok: false, reason: "لم يتم ضبط كلمة التأكيد" };
+      if (cur.passphrase !== phrase.trim())
         return { ok: false, reason: "كلمة التأكيد غير مطابقة" };
-      }
       const tasks = cur.tasks.map((t) =>
         t.id === taskId ? { ...t, completedAt: Date.now() } : t
       );
@@ -323,7 +352,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const visibleTodayTasks = useCallback((): Task[] => {
     return stateRef.current.tasks.filter((t) => {
-      // Always show until done; if days mode and finished all repeats, hide
       if (t.completedAt) return true;
       if (t.repeatMode === "days" && t.daysRemaining <= 0) return false;
       return true;
@@ -340,52 +368,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return essentialsRemaining().length === 0;
   }, [essentialsRemaining]);
 
-  const unlockedAppIds = useCallback((): Set<string> => {
-    const cur = stateRef.current;
-    const allowed = new Set<string>();
-    const essentialsDone = cur.tasks.every(
-      (t) => t.category !== "essential" || t.completedAt
-    );
-
-    // While essential tasks pending: only apps tied to the next pending essential are usable
-    const pendingEssentials = cur.tasks.filter(
-      (t) => t.category === "essential" && !t.completedAt
-    );
-    if (pendingEssentials.length > 0) {
-      pendingEssentials.forEach((t) => {
-        // Apps for an essential are usable only after it's started
-        if (t.startedAt) {
-          t.appIds.forEach((id) => allowed.add(id));
-        }
-      });
-      return allowed;
-    }
-
-    // All essentials done — non-essential apps available; if a non-essential is started, only its apps + all done essentials apps
-    const activeOptional = cur.tasks.find(
-      (t) => t.category === "optional" && t.startedAt && !t.completedAt
-    );
-    if (activeOptional) {
-      activeOptional.appIds.forEach((id) => allowed.add(id));
-      return allowed;
-    }
-
-    // Reward mode: when no optional is active, everything is open
-    if (essentialsDone) {
-      // unlock all
-      return new Set(["__ALL__"]);
-    }
-    return allowed;
-  }, []);
-
-  const isAppUnlocked = useCallback(
-    (appId: string) => {
-      const set = unlockedAppIds();
-      return set.has("__ALL__") || set.has(appId);
-    },
-    [unlockedAppIds]
-  );
-
   const resetAll = useCallback(async () => {
     await AsyncStorage.removeItem(STORAGE_KEY);
     setState(defaultState);
@@ -396,6 +378,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     () => ({
       state,
       ready,
+      allApps,
+      getApp,
+      addCustomApp,
       setPassphrase,
       changePassphrase,
       canChangePassphrase,
@@ -407,13 +392,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       visibleTodayTasks,
       essentialsRemaining,
       allEssentialsDone,
-      unlockedAppIds,
-      isAppUnlocked,
       resetAll,
     }),
     [
       state,
       ready,
+      allApps,
+      getApp,
+      addCustomApp,
       setPassphrase,
       changePassphrase,
       canChangePassphrase,
@@ -425,13 +411,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       visibleTodayTasks,
       essentialsRemaining,
       allEssentialsDone,
-      unlockedAppIds,
-      isAppUnlocked,
       resetAll,
     ]
   );
 
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  return (
+    <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+  );
 }
 
 export function useStore(): Ctx {
@@ -440,4 +426,4 @@ export function useStore(): Ctx {
   return ctx;
 }
 
-export { startOfTomorrow, todayKey };
+export { todayKey };

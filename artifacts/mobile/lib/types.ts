@@ -3,6 +3,7 @@ export type AppItem = {
   name: string;
   icon: string;
   color: string;
+  custom?: boolean;
 };
 
 export type RepeatMode = "none" | "star" | "days";
@@ -29,6 +30,7 @@ export type AppState = {
   passphraseSetAt: number | null;
   passphraseLastChangedAt: number | null;
   tasks: Task[];
+  customApps: AppItem[];
   activeTimerTaskId: string | null;
   timerStartAt: number | null;
 };

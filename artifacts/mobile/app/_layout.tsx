@@ -26,17 +26,10 @@ function RootLayoutNav() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#0B0F1A" },
+        contentStyle: { backgroundColor: "#0D0904" },
         animation: "fade",
       }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen
-        name="new-task"
-        options={{ presentation: "modal", animation: "slide_from_bottom" }}
-      />
-    </Stack>
+    />
   );
 }
 
@@ -60,7 +53,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0D0904" }}>
             <KeyboardProvider>
               <StoreProvider>
                 <StatusBar style="light" />
