@@ -193,9 +193,34 @@ export function TaskCard({
                   </Text>
                 </View>
               ) : null}
-              {apps.map((a) => (
-                <AppIcon key={a!.id} app={a!} size={36} />
-              ))}
+              {apps.map((a) => {
+                const mins = task.appDurations?.[a!.id];
+                return (
+                  <View key={a!.id} style={{ alignItems: "center", gap: 3 }}>
+                    <AppIcon app={a!} size={36} />
+                    {mins && mins > 0 ? (
+                      <View
+                        style={{
+                          backgroundColor: colors.primary,
+                          borderRadius: 8,
+                          paddingHorizontal: 6,
+                          paddingVertical: 1,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 9,
+                            fontFamily: "Inter_700Bold",
+                            color: colors.primaryForeground,
+                          }}
+                        >
+                          {mins}د
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
           </View>
         ) : null}

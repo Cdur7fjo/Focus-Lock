@@ -13,6 +13,7 @@ export type Task = {
   title: string;
   category: "essential" | "optional";
   appIds: string[];
+  appDurations: Record<string, number>;
   durationMinutes: number | null;
   repeatMode: RepeatMode;
   starOn: boolean;

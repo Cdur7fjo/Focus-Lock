@@ -30,6 +30,7 @@ export function AddTaskForm({ onCancel, onSaved, hideCancel }: Props) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<"essential" | "optional">("essential");
   const [appIds, setAppIds] = useState<string[]>([]);
+  const [appDurations, setAppDurations] = useState<Record<string, string>>({});
   const [pickerOpen, setPickerOpen] = useState(false);
   const [hasTimer, setHasTimer] = useState(false);
   const [duration, setDuration] = useState<number>(30);
@@ -44,6 +45,7 @@ export function AddTaskForm({ onCancel, onSaved, hideCancel }: Props) {
     setTitle("");
     setCategory("essential");
     setAppIds([]);
+    setAppDurations({});
     setHasTimer(false);
     setDuration(30);
     setCustomDuration("");
@@ -71,10 +73,16 @@ export function AddTaskForm({ onCancel, onSaved, hideCancel }: Props) {
       }
       dayCount = d;
     }
+    const perApp: Record<string, number> = {};
+    for (const id of appIds) {
+      const v = parseInt(appDurations[id] ?? "", 10);
+      if (!isNaN(v) && v > 0) perApp[id] = v;
+    }
     await addTask({
       title,
       category,
       appIds,
+      appDurations: perApp,
       durationMinutes: dur,
       repeatMode,
       daysCount: dayCount,
@@ -234,6 +242,66 @@ export function AddTaskForm({ onCancel, onSaved, hideCancel }: Props) {
         <Feather name="chevron-down" size={18} color={colors.mutedForeground} />
       </PressableScale>
 
+      {appIds.length > 0 ? (
+        <View
+          style={[
+            styles.perAppBox,
+            {
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.perAppHeader}>
+            <Feather name="clock" size={14} color={colors.primary} />
+            <Text style={[styles.perAppTitle, { color: colors.foreground }]}>
+              وقت لكل تطبيق (اختياري)
+            </Text>
+          </View>
+          <Text style={[styles.helpText, { color: colors.mutedForeground }]}>
+            حدد للتطبيقات اللي عاوز تقفلها بعد وقت معين — لو سيبتها فاضية هتشتغل لحد ما تخلص المهمة.
+          </Text>
+          {appIds.map((id) => {
+            const app = getApp(id);
+            if (!app) return null;
+            return (
+              <View key={id} style={styles.perAppRow}>
+                <AppIcon app={app} size={36} />
+                <Text
+                  numberOfLines={1}
+                  style={[styles.perAppName, { color: colors.foreground }]}
+                >
+                  {app.name}
+                </Text>
+                <View style={styles.perAppInputWrap}>
+                  <TextInput
+                    value={appDurations[id] ?? ""}
+                    onChangeText={(v) =>
+                      setAppDurations((prev) => ({ ...prev, [id]: v }))
+                    }
+                    placeholder="—"
+                    placeholderTextColor={colors.mutedForeground}
+                    keyboardType="number-pad"
+                    style={[
+                      styles.perAppInput,
+                      {
+                        color: colors.foreground,
+                        backgroundColor: colors.cardElevated,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                    textAlign="center"
+                  />
+                  <Text style={[styles.perAppUnit, { color: colors.mutedForeground }]}>
+                    دقيقة
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      ) : null}
+
       {/* Step 4: Time */}
       <View style={styles.stepHeader}>
         <View style={[styles.stepNum, { backgroundColor: colors.primary }]}>
@@ -242,7 +310,7 @@ export function AddTaskForm({ onCancel, onSaved, hideCancel }: Props) {
           </Text>
         </View>
         <Text style={[styles.stepLabel, { color: colors.foreground }]}>
-          الوقت
+          وقت المهمة كلها
         </Text>
         <View style={{ flex: 1 }} />
         <PressableScale
@@ -589,4 +657,38 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   btnText: { fontFamily: "Inter_700Bold", fontSize: 15 },
+  perAppBox: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    gap: 10,
+    marginTop: 4,
+  },
+  perAppHeader: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+  },
+  perAppTitle: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  perAppRow: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 10,
+  },
+  perAppName: { flex: 1, fontFamily: "Inter_500Medium", fontSize: 14, textAlign: "right" },
+  perAppInputWrap: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 6,
+  },
+  perAppInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    minWidth: 56,
+  },
+  perAppUnit: { fontFamily: "Inter_500Medium", fontSize: 11 },
 });

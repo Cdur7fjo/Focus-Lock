@@ -67,6 +67,7 @@ type Ctx = {
   canChangePassphrase: () => { ok: boolean; reason?: string };
   setPermission: (key: AppPermissionKey, value: boolean) => Promise<void>;
   addTask: (input: {
+    appDurations?: Record<string, number>;
     title: string;
     category: "essential" | "optional";
     appIds: string[];
@@ -315,6 +316,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       title: string;
       category: "essential" | "optional";
       appIds: string[];
+      appDurations?: Record<string, number>;
       durationMinutes: number | null;
       repeatMode: RepeatMode;
       daysCount: number;
@@ -326,6 +328,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         title: input.title.trim(),
         category: input.category,
         appIds: input.appIds,
+        appDurations: input.appDurations ?? {},
         durationMinutes: input.durationMinutes,
         repeatMode: input.repeatMode,
         starOn: input.repeatMode === "star",
