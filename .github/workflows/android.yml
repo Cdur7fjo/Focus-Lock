@@ -5,25 +5,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20 # نسخة مستقرة للإكسبو
 
-      - name: Install Clean Dependencies
+      - name: Clean & Install
         run: |
-          npm install -g pnpm
-          # التأكد من مسح أي أثر للمكتبة قبل التثبيت
+          # 1. مسح المكتبة من الـ package.json في الموبايل
           sed -i '/react-native-reanimated/d' artifacts/mobile/package.json
           sed -i '/react-native-gesture-handler/d' artifacts/mobile/package.json
-          sed -i '/react-native-worklets/d' artifacts/mobile/package.json
           
-          pnpm config set node-linker hoisted
+          # 2. مسح ملفات الـ lock وأي بقايا
+          find . -name "pnpm-lock.yaml" -delete
+          find . -name "node_modules" -type d -prune -exec rm -rf {} +
+          
+          npm install -g pnpm
           pnpm install --no-frozen-lockfile
 
       - name: Setup Java
@@ -32,23 +32,25 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build APK
+      - name: Force Expo Prebuild (The Nuclear Fix)
         run: |
-          # تحديد مكان مجلد الأندرويد بدقة
-          ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
-          cd $ANDROID_DIR
+          cd artifacts/mobile
+          # السطر ده بيمسح أي مجلد أندرويد "قديم" أو "بايظ" وبيعمل واحد جديد نضيف تماما
+          npx expo prebuild --platform android --clean
           
-          # إعدادات لمنع المعمارية الجديدة نهائياً
-          echo "newArchEnabled=false" > gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          
+          # إجبار المعمارية القديمة في المجلد اللي لسه متولّد
+          echo "newArchEnabled=false" >> android/gradle.properties
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+
+      - name: Final Build
+        run: |
+          cd artifacts/mobile/android
           chmod +x gradlew
-          ./gradlew clean
           ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: my-app-apk
+          name: focus-lock-apk
           path: "**/build/outputs/apk/release/*.apk"
