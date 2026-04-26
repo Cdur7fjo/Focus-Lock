@@ -4,10 +4,9 @@ workflows:
     max_build_duration: 30
     instance_type: mac_mini_m1
     scripts:
-      - name: Install pnpm and Dependencies
+      - name: Install Dependencies with Yarn
         script: |
-          npm install -g pnpm
-          pnpm install --no-frozen-lockfile
+          yarn install
       - name: Clean and Fix Android
         script: |
           cd android
