@@ -15,19 +15,19 @@ jobs:
         with:
           node-version: 24
 
-      - name: Extreme Cleanup
+      - name: Full Clean & Dependency Setup
         run: |
-          # 1. مسح المكتبات المزعجة من الملف الأساسي
+          # 1. مسح المكتبات المزعجة نهائياً من package.json
           sed -i '/react-native-reanimated/d' package.json
           sed -i '/react-native-gesture-handler/d' package.json
           sed -i '/preinstall/d' package.json
           
-          # 2. تثبيت المكتبات (بدونها)
+          # 2. تثبيت المكتبات (اللازمة فقط)
           npm install -g pnpm
           pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
           
-          # 3. خطوة "الإبادة": مسح ملفات المكتبة من الفولدرات لو نزلت غصب عنا
+          # 3. إبادة مادية لأي ملفات متبقية
           rm -rf node_modules/react-native-reanimated
           rm -rf node_modules/react-native-gesture-handler
 
@@ -37,29 +37,33 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Final Android Fix
+      - name: Surgical Fix for Android Settings
         run: |
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           ROOT_DIR=$(pwd)
           cd $ANDROID_DIR
           
-          # تصفير الإعدادات تماماً وإجبار النظام القديم
+          # مسح أي إشارة للمكتبة من ملفات الإعدادات في أندرويد
+          if [ -f "settings.gradle" ]; then
+            sed -i '/react-native-reanimated/d' settings.gradle
+            sed -i '/react-native-gesture-handler/d' settings.gradle
+          fi
+
+          # تصفير الـ properties
           echo "android.useAndroidX=true" > gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
           echo "nodeModulesPaths=$ROOT_DIR/node_modules" >> gradle.properties
           
-          # تنظيف عميق
           chmod +x gradlew
           ./gradlew clean
 
-      - name: Build Without Reanimated
+      - name: The Final Build
         run: |
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           cd $ANDROID_DIR
-          
-          # محاولة بناء مع تجاهل أي خطأ في المهام الفرعية
-          ./gradlew assembleRelease -x :react-native-reanimated:assembleRelease --no-daemon
+          # المرة دي أمر بناء مباشر ونضيف من غير تعقيدات
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
