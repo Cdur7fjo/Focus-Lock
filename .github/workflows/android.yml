@@ -11,18 +11,12 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # نسخة مستقرة للإكسبو
+          node-version: 20
 
-      - name: Clean & Install
+      - name: Clean Install
         run: |
-          # 1. مسح المكتبة من الـ package.json في الموبايل
-          sed -i '/react-native-reanimated/d' artifacts/mobile/package.json
-          sed -i '/react-native-gesture-handler/d' artifacts/mobile/package.json
-          
-          # 2. مسح ملفات الـ lock وأي بقايا
-          find . -name "pnpm-lock.yaml" -delete
+          # تنظيف جذري
           find . -name "node_modules" -type d -prune -exec rm -rf {} +
-          
           npm install -g pnpm
           pnpm install --no-frozen-lockfile
 
@@ -32,16 +26,18 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Force Expo Prebuild (The Nuclear Fix)
+      - name: Expo Prebuild (No Interactive)
         run: |
           cd artifacts/mobile
-          # السطر ده بيمسح أي مجلد أندرويد "قديم" أو "بايظ" وبيعمل واحد جديد نضيف تماما
-          npx expo prebuild --platform android --clean
+          # السطر ده هو اللي هيمسح القديم ويولد مجلد أندرويد جديد نضيف
+          # واستخدمنا --no-install عشان ميسألش السيرفر أسئلة محتاجة رد
+          npx expo prebuild --platform android --clean --no-install
           
-          # إجبار المعمارية القديمة في المجلد اللي لسه متولّد
+          # تثبيت المكتبات اللي الإكسبو طلبها بعد ما عمل المجلد الجديد
+          pnpm install --no-frozen-lockfile
+          
+          # تعطيل المعمارية الجديدة يدوياً في المجلد اللي لسه متولّد حالا
           echo "newArchEnabled=false" >> android/gradle.properties
-          echo "android.useAndroidX=true" >> android/gradle.properties
-          echo "android.enableJetifier=true" >> android/gradle.properties
 
       - name: Final Build
         run: |
