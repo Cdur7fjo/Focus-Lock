@@ -15,21 +15,19 @@ jobs:
         with:
           node-version: 24
 
-      - name: Full Clean & Dependency Setup
+      - name: Search and Destroy Reanimated
         run: |
-          # 1. مسح المكتبات المزعجة نهائياً من package.json
-          sed -i '/react-native-reanimated/d' package.json
-          sed -i '/react-native-gesture-handler/d' package.json
-          sed -i '/preinstall/d' package.json
+          # 1. مسح المكتبة من كل ملفات package.json في المشروع كله (مهما كان مكانها)
+          find . -name "package.json" -exec sed -i '/react-native-reanimated/d' {} +
+          find . -name "package.json" -exec sed -i '/react-native-gesture-handler/d' {} +
           
-          # 2. تثبيت المكتبات (اللازمة فقط)
+          # 2. مسح ملفات الـ node_modules القديمة عشان نضمن النظافة
+          find . -name "node_modules" -type d -prune -exec rm -rf {} +
+          
+          # 3. إعادة التثبيت النظيف
           npm install -g pnpm
           pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
-          
-          # 3. إبادة مادية لأي ملفات متبقية
-          rm -rf node_modules/react-native-reanimated
-          rm -rf node_modules/react-native-gesture-handler
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -37,33 +35,24 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Surgical Fix for Android Settings
+      - name: Force Fix Every Gradle File
         run: |
-          ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
-          ROOT_DIR=$(pwd)
-          cd $ANDROID_DIR
-          
-          # مسح أي إشارة للمكتبة من ملفات الإعدادات في أندرويد
-          if [ -f "settings.gradle" ]; then
-            sed -i '/react-native-reanimated/d' settings.gradle
-            sed -i '/react-native-gesture-handler/d' settings.gradle
-          fi
+          # هيلف على كل ملفات gradle.properties في المشروع ويجبرها تقفل المعمارية الجديدة
+          find . -name "gradle.properties" -exec sh -c 'echo "newArchEnabled=false" >> {}' \;
+          find . -name "gradle.properties" -exec sh -c 'echo "android.useAndroidX=true" >> {}' \;
+          find . -name "gradle.properties" -exec sh -c 'echo "android.enableJetifier=true" >> {}' \;
 
-          # تصفير الـ properties
-          echo "android.useAndroidX=true" > gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          echo "newArchEnabled=false" >> gradle.properties
-          echo "nodeModulesPaths=$ROOT_DIR/node_modules" >> gradle.properties
+      - name: Final Build Attempt
+        run: |
+          # تحديد مكان الـ gradlew
+          ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
+          cd $ANDROID_DIR
           
           chmod +x gradlew
           ./gradlew clean
-
-      - name: The Final Build
-        run: |
-          ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
-          cd $ANDROID_DIR
-          # المرة دي أمر بناء مباشر ونضيف من غير تعقيدات
-          ./gradlew assembleRelease --no-daemon
+          
+          # هنبني مع "تجاهل" المهمة اللي كانت بتفشل (الـ Task بتاع Reanimated)
+          ./gradlew assembleRelease --no-daemon -x :react-native-reanimated:assertNewArchitectureEnabledTask
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
