@@ -19,7 +19,6 @@ jobs:
         run: |
           npm install -g pnpm
           sed -i '/preinstall/d' package.json
-          # الأمر ده بيجبر pnpm يفك المكتبات بشكل الأندرويد يفهمه
           pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
 
@@ -37,14 +36,18 @@ jobs:
           
           cd $ANDROID_DIR
           
-          # 2. تفعيل AndroidX وإضافة مسارات المكتبات يدوياً
-          echo "android.useAndroidX=true" > gradle.properties
+          # 2. إعدادات جرادل والمكتبات
+          # استخدمنا >> عشان نضيف على الملف بدون ما نمسح أي إعدادات تانية موجودة
+          echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           
-          # السطر ده هو "النضارة" اللي هتخلي الأندرويد يشوف React Native
+          # السطر السحري الجديد عشان نحل مشكلة Reanimated للأبد
+          echo "newArchEnabled=true" >> gradle.properties
+          
+          # مسار الـ node_modules
           echo "nodeModulesPaths=$ROOT_DIR/node_modules" >> gradle.properties
 
-          # 3. تنظيف وبناء (الضربة القاضية)
+          # 3. تنظيف وبناء
           chmod +x gradlew
           ./gradlew clean
           ./gradlew assembleRelease --no-daemon
