@@ -5,12 +5,11 @@ workflows:
     instance_type: mac_mini_m1
     scripts:
       - name: Install dependencies
-        script: npm install
+        script: npm install --legacy-peer-deps
       - name: Build Android APK
-        script: cd android && ./gradlew assembleRelease
+        script: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
-    publishing:
-      email:
-        recipients:
-          - your-email@example.com # y87dgdjeyleg@gmail.com 
