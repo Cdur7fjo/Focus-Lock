@@ -15,14 +15,17 @@ jobs:
         with:
           node-version: 24
 
-      - name: Build Setup
+      - name: Surgical Removal of Reanimated
         run: |
-          npm install -g pnpm
+          # مسح المكتبات المسببة للمشاكل من ملف package.json نهائياً
+          sed -i '/react-native-reanimated/d' package.json
+          sed -i '/react-native-gesture-handler/d' package.json
+          
+          # مسح سطر الـ preinstall اللغم
           sed -i '/preinstall/d' package.json
           
-          # الاستئصال الذكي: إجبار المشروع على استخدام نسخة هادية من المكتبة
-          node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json')); pkg.pnpm = pkg.pnpm || {}; pkg.pnpm.overrides = pkg.pnpm.overrides || {}; pkg.pnpm.overrides['react-native-reanimated'] = '~3.5.0'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
-          
+          # تثبيت pnpm والاعتماد على النسخ العادية
+          npm install -g pnpm
           pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
 
@@ -32,25 +35,27 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Final Android Fix and Build
+      - name: Clean Android Environment
         run: |
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           ROOT_DIR=$(pwd)
-          
           cd $ANDROID_DIR
           
-          # رجعنا الإعدادات القديمة وشيلنا تفعيل المعمارية الجديدة خالص
+          # تصفير ملف الإعدادات من أي تعقيدات
           echo "android.useAndroidX=true" > gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
+          echo "newArchEnabled=false" >> gradle.properties
           echo "nodeModulesPaths=$ROOT_DIR/node_modules" >> gradle.properties
           
-          # زيادة رامات البناء عشان السيرفر ميهنجش
-          echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m" >> gradle.properties
-
           # تنظيف وبناء
           chmod +x gradlew
           ./gradlew clean
-          ./gradlew assembleRelease --no-daemon --max-workers 2
+
+      - name: Final Build
+        run: |
+          ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
+          cd $ANDROID_DIR
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
