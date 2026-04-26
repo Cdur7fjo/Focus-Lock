@@ -1,6 +1,6 @@
 name: Build Android APK
 on:
-  workflow_dispatch: # ده بيخليك تشغل البناء يدوي بضغط زرار
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,14 +11,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22 # حدثنا النسخة هنا عشان التنبيه اللي ظهرلك
 
       - name: Install pnpm
         run: npm install -g pnpm
 
       - name: Disable Install Restrictions
         run: |
-          # السطر ده بيمسح اللغم اللي كان بيوقفنا
+          # السطر ده بيمسح القيود مؤقتاً عشان البناء يكمل
           sed -i '/preinstall/d' package.json
 
       - name: Install Dependencies
