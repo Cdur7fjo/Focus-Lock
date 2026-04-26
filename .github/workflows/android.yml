@@ -15,17 +15,14 @@ jobs:
         with:
           node-version: 24
 
-      - name: Search and Destroy Reanimated
+      - name: Install Clean Dependencies
         run: |
-          # 1. مسح المكتبة من كل ملفات package.json في المشروع كله (مهما كان مكانها)
-          find . -name "package.json" -exec sed -i '/react-native-reanimated/d' {} +
-          find . -name "package.json" -exec sed -i '/react-native-gesture-handler/d' {} +
-          
-          # 2. مسح ملفات الـ node_modules القديمة عشان نضمن النظافة
-          find . -name "node_modules" -type d -prune -exec rm -rf {} +
-          
-          # 3. إعادة التثبيت النظيف
           npm install -g pnpm
+          # التأكد من مسح أي أثر للمكتبة قبل التثبيت
+          sed -i '/react-native-reanimated/d' artifacts/mobile/package.json
+          sed -i '/react-native-gesture-handler/d' artifacts/mobile/package.json
+          sed -i '/react-native-worklets/d' artifacts/mobile/package.json
+          
           pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
 
@@ -35,24 +32,20 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Force Fix Every Gradle File
+      - name: Build APK
         run: |
-          # هيلف على كل ملفات gradle.properties في المشروع ويجبرها تقفل المعمارية الجديدة
-          find . -name "gradle.properties" -exec sh -c 'echo "newArchEnabled=false" >> {}' \;
-          find . -name "gradle.properties" -exec sh -c 'echo "android.useAndroidX=true" >> {}' \;
-          find . -name "gradle.properties" -exec sh -c 'echo "android.enableJetifier=true" >> {}' \;
-
-      - name: Final Build Attempt
-        run: |
-          # تحديد مكان الـ gradlew
+          # تحديد مكان مجلد الأندرويد بدقة
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           cd $ANDROID_DIR
           
+          # إعدادات لمنع المعمارية الجديدة نهائياً
+          echo "newArchEnabled=false" > gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          
           chmod +x gradlew
           ./gradlew clean
-          
-          # هنبني مع "تجاهل" المهمة اللي كانت بتفشل (الـ Task بتاع Reanimated)
-          ./gradlew assembleRelease --no-daemon -x :react-native-reanimated:assertNewArchitectureEnabledTask
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
