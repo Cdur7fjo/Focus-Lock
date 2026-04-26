@@ -13,10 +13,16 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install & Expo Prebuild
+      - name: Hard Cleanup & Install
         run: |
+          # مسح المكتبة من كل ملفات المشروع أوتوماتيك
+          find . -name "package.json" -exec sed -i '/react-native-reanimated/d' {} +
+          find . -name "*.js" -exec sed -i '/react-native-reanimated/d' {} +
+          find . -name "*.tsx" -exec sed -i '/react-native-reanimated/d' {} +
+          
           npm install -g pnpm
           pnpm install --no-frozen-lockfile
+          
           cd artifacts/mobile
           rm -rf android
           npx expo prebuild --platform android --clean --no-install
@@ -33,6 +39,4 @@ jobs:
           cd artifacts/mobile/android
           echo "newArchEnabled=false" >> gradle.properties
           chmod +x gradlew
-          # أمر التنظيف والبناء المختصر
-          ./gradlew clean
           ./gradlew assembleRelease --no-daemon --quiet
