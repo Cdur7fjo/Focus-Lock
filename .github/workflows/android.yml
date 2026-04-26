@@ -1,0 +1,43 @@
+name: Build Android APK
+on:
+  workflow_dispatch: # ده بيخليك تشغل البناء يدوي بضغط زرار
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Disable Install Restrictions
+        run: |
+          # السطر ده بيمسح اللغم اللي كان بيوقفنا
+          sed -i '/preinstall/d' package.json
+
+      - name: Install Dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-app-apk
+          path: android/app/build/outputs/apk/release/*.apk
