@@ -13,11 +13,13 @@ jobs:
         with:
           node-version: 20
 
-      - name: Clean Install
+      - name: Install & Expo Prebuild
         run: |
-          # تنظيف جذري
-          find . -name "node_modules" -type d -prune -exec rm -rf {} +
           npm install -g pnpm
+          pnpm install --no-frozen-lockfile
+          cd artifacts/mobile
+          rm -rf android
+          npx expo prebuild --platform android --clean --no-install
           pnpm install --no-frozen-lockfile
 
       - name: Setup Java
@@ -26,27 +28,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Expo Prebuild (No Interactive)
-        run: |
-          cd artifacts/mobile
-          # السطر ده هو اللي هيمسح القديم ويولد مجلد أندرويد جديد نضيف
-          # واستخدمنا --no-install عشان ميسألش السيرفر أسئلة محتاجة رد
-          npx expo prebuild --platform android --clean --no-install
-          
-          # تثبيت المكتبات اللي الإكسبو طلبها بعد ما عمل المجلد الجديد
-          pnpm install --no-frozen-lockfile
-          
-          # تعطيل المعمارية الجديدة يدوياً في المجلد اللي لسه متولّد حالا
-          echo "newArchEnabled=false" >> android/gradle.properties
-
       - name: Final Build
         run: |
           cd artifacts/mobile/android
+          echo "newArchEnabled=false" >> gradle.properties
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: focus-lock-apk
-          path: "**/build/outputs/apk/release/*.apk"
+          # أمر التنظيف والبناء المختصر
+          ./gradlew clean
+          ./gradlew assembleRelease --no-daemon --quiet
