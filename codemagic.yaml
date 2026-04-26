@@ -1,15 +1,15 @@
-
 workflows:
   android-workflow:
     name: Android Build
     max_build_duration: 30
     instance_type: mac_mini_m1
     scripts:
-      - name: Install Dependencies
+      - name: Install pnpm and Dependencies
         script: |
-          # ده السطر اللي بيحل مشكلة الـ Workspace غصب عن النظام
-          echo "nodeLinker: node-modules" > .yarnrc.yml
-          yarn install --no-immutable
+          # هنا بنستخدم الطريقة الرسمية لتفعيل pnpm بدون صدام مع النظام
+          corepack enable
+          corepack prepare pnpm@latest --activate
+          pnpm install --no-frozen-lockfile
       - name: Clean and Fix Android
         script: |
           cd android
