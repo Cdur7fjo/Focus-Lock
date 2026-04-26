@@ -15,19 +15,21 @@ jobs:
         with:
           node-version: 24
 
-      - name: Surgical Removal of Reanimated
+      - name: Extreme Cleanup
         run: |
-          # مسح المكتبات المسببة للمشاكل من ملف package.json نهائياً
+          # 1. مسح المكتبات المزعجة من الملف الأساسي
           sed -i '/react-native-reanimated/d' package.json
           sed -i '/react-native-gesture-handler/d' package.json
-          
-          # مسح سطر الـ preinstall اللغم
           sed -i '/preinstall/d' package.json
           
-          # تثبيت pnpm والاعتماد على النسخ العادية
+          # 2. تثبيت المكتبات (بدونها)
           npm install -g pnpm
           pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
+          
+          # 3. خطوة "الإبادة": مسح ملفات المكتبة من الفولدرات لو نزلت غصب عنا
+          rm -rf node_modules/react-native-reanimated
+          rm -rf node_modules/react-native-gesture-handler
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -35,27 +37,29 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Clean Android Environment
+      - name: Final Android Fix
         run: |
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           ROOT_DIR=$(pwd)
           cd $ANDROID_DIR
           
-          # تصفير ملف الإعدادات من أي تعقيدات
+          # تصفير الإعدادات تماماً وإجبار النظام القديم
           echo "android.useAndroidX=true" > gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           echo "newArchEnabled=false" >> gradle.properties
           echo "nodeModulesPaths=$ROOT_DIR/node_modules" >> gradle.properties
           
-          # تنظيف وبناء
+          # تنظيف عميق
           chmod +x gradlew
           ./gradlew clean
 
-      - name: Final Build
+      - name: Build Without Reanimated
         run: |
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           cd $ANDROID_DIR
-          ./gradlew assembleRelease --no-daemon
+          
+          # محاولة بناء مع تجاهل أي خطأ في المهام الفرعية
+          ./gradlew assembleRelease -x :react-native-reanimated:assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
