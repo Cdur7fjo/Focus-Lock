@@ -7,8 +7,9 @@ workflows:
     scripts:
       - name: Install Dependencies
         script: |
-          yarn config set enableImmutableInstalls false
-          yarn install
+          # ده السطر اللي بيحل مشكلة الـ Workspace غصب عن النظام
+          echo "nodeLinker: node-modules" > .yarnrc.yml
+          yarn install --no-immutable
       - name: Clean and Fix Android
         script: |
           cd android
