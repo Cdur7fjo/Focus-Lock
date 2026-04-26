@@ -19,6 +19,8 @@ jobs:
         run: |
           npm install -g pnpm
           sed -i '/preinstall/d' package.json
+          # الأمر ده بيجبر pnpm يفك المكتبات بشكل الأندرويد يفهمه
+          pnpm config set node-linker hoisted
           pnpm install --no-frozen-lockfile
 
       - name: Setup Java
@@ -29,23 +31,23 @@ jobs:
 
       - name: Final Android Fix and Build
         run: |
-          # 1. تحديد مكان فولدر الأندرويد ومكان الـ node_modules
+          # 1. تحديد مكان المجلدات
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           ROOT_DIR=$(pwd)
+          
           cd $ANDROID_DIR
           
-          # 2. حل مشكلة AndroidX اللي فاتت (للتأكيد)
+          # 2. تفعيل AndroidX وإضافة مسارات المكتبات يدوياً
           echo "android.useAndroidX=true" > gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
           
-          # 3. الحل السحري لمشكلة React Native (الربط اليدوي)
-          # السطر ده بيقول للأندرويد: المكتبات موجودة في الفولدر ده على السيرفر
+          # السطر ده هو "النضارة" اللي هتخلي الأندرويد يشوف React Native
           echo "nodeModulesPaths=$ROOT_DIR/node_modules" >> gradle.properties
 
-          # 4. تنظيف وبناء
+          # 3. تنظيف وبناء (الضربة القاضية)
           chmod +x gradlew
           ./gradlew clean
-          ./gradlew assembleRelease --stacktrace
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
