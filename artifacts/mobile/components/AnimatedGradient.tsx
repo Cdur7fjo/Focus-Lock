@@ -105,7 +105,7 @@ export function GradientBg({ style }: { style?: StyleProp<ViewStyle> }) {
   }));
   return (
     <AnimatedLG
-      colors={["#FACC15", "#F59E0B", "#0D0904"] as any}
+      colors={["#FACC15", "#F59E0B", "#3A2A0E"] as any}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
       style={[StyleSheet.absoluteFill, a, style]}

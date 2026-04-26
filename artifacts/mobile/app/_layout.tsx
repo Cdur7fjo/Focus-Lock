@@ -26,7 +26,7 @@ function RootLayoutNav() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#0D0904" },
+        contentStyle: { backgroundColor: "#3A2A0E" },
         animation: "fade",
       }}
     />
@@ -53,7 +53,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#0D0904" }}>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#3A2A0E" }}>
             <KeyboardProvider>
               <StoreProvider>
                 <StatusBar style="light" />

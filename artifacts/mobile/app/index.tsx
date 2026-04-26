@@ -141,7 +141,7 @@ export default function HomeScreen() {
           </PressableScale>
           <View style={{ flex: 1, alignItems: "flex-end" }}>
             <Text style={[styles.heading, { color: colors.foreground }]}>
-              نظام حياتي
+              يوسف ينظم حياته
             </Text>
             {!state.passphrase ? (
               <Text style={{ color: colors.warning, fontSize: 11, fontFamily: "Inter_500Medium" }}>

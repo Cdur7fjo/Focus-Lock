@@ -319,7 +319,7 @@ export function SettingsModal({ visible, onClose }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(26,12,2,0.78)",
     justifyContent: "flex-end",
   },
   sheet: {
