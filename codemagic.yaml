@@ -6,10 +6,16 @@ workflows:
     scripts:
       - name: Install dependencies
         script: npm install --legacy-peer-deps
+      - name: Clean and Fix Android
+        script: |
+          cd android
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          chmod +x gradlew
+          ./gradlew clean
       - name: Build Android APK
         script: |
           cd android
-          chmod +x gradlew
           ./gradlew assembleRelease
     artifacts:
       - android/app/build/outputs/apk/release/*.apk
