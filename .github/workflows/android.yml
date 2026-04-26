@@ -27,14 +27,20 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build APK
+      - name: Force AndroidX and Build
         run: |
-          # المرة دي هنخليه يروح لأعمق فولدر فيه gradle عشان نضمن إنه فولدر التطبيق مش فولدر المكتبات
+          # 1. البحث عن فولدر الأندرويد الصح
           ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
           if [ -z "$ANDROID_DIR" ]; then ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1); fi
-          
           cd $ANDROID_DIR
+          
+          # 2. تفعيل AndroidX برمجياً (الحل اللي الصورة طلبته)
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          
+          # 3. تنظيف وبناء التطبيق
           chmod +x gradlew
+          ./gradlew clean
           ./gradlew assembleRelease
 
       - name: Upload APK
