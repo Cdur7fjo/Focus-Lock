@@ -29,9 +29,11 @@ jobs:
 
       - name: Build APK
         run: |
-          # السطر ده بيدور على فولدر android في أي مكان وبيدخله
-          ANDROID_PATH=$(find . -name "gradlew" -printf '%h\n' | head -n 1)
-          cd $ANDROID_PATH
+          # المرة دي هنخليه يروح لأعمق فولدر فيه gradle عشان نضمن إنه فولدر التطبيق مش فولدر المكتبات
+          ANDROID_DIR=$(find . -path "*/android/gradlew" -printf '%h\n' | head -n 1)
+          if [ -z "$ANDROID_DIR" ]; then ANDROID_DIR=$(find . -name "gradlew" -printf '%h\n' | head -n 1); fi
+          
+          cd $ANDROID_DIR
           chmod +x gradlew
           ./gradlew assembleRelease
 
