@@ -1,63 +1,17 @@
-name: Build Android APK (Nuclear Fix)
+name: Step 1 - Check Dependencies
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  check-libs:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
+      - uses: actions/checkout@v4
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
-
-      - name: 🔥 Deep Clean & Fix Dependencies
+      - name: Test Install
         run: |
           cd artifacts/mobile
-          
-          # 1. مسح شامل للملفات القديمة والمؤقتة
-          rm -rf node_modules pnpm-lock.yaml package-lock.json android
-          
-          # 2. تنظيف الـ package.json من أي مكتبات تسبب تعارض
-          sed -i '/react-native-reanimated/d' package.json
-          sed -i '/react-native-gesture-handler/d' package.json
-          
-          # 3. تثبيت المكتبات بنسخ مستقرة جداً متوافقة مع Expo 50
-          npm install expo@^50.0.0 react-native@0.73.2 --save-exact
           npm install --legacy-peer-deps
-          
-          # 4. إصلاح الـ Plugins يدوياً (عشان نتفادى خطأ withPodfile)
-          npx expo install expo-router expo-constants expo-linking expo-web-browser expo-status-bar --fix
-
-      - name: Setup Java (The Foundation)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: 🏗️ Create Fresh Android Project
-        run: |
-          cd artifacts/mobile
-          # إنشاء مجلد أندرويد جديد ونظيف تماماً
-          npx expo prebuild --platform android --clean --no-install
-          
-      - name: 🚀 Final Build (Ignoring Non-Critical Errors)
-        run: |
-          cd artifacts/mobile/android
-          # إعدادات لتقليل أخطاء الذاكرة والـ Lint
-          echo "org.gradle.jvmargs=-Xmx4096m" >> gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "android.enableJetifier=true" >> gradle.properties
-          
-          chmod +x gradlew
-          # تشغيل البناء مع تخطي الاختبارات والـ Lint لضمان استخراج الـ APK
-          ./gradlew assembleRelease -x test -x lint --no-daemon
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: focus-lock-app
-          path: artifacts/mobile/android/app/build/outputs/apk/release/*.apk
