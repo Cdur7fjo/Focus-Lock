@@ -11,27 +11,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 18
 
-      - name: The Ultimate Clean (Nuclear Option)
+      - name: Install Dependencies
         run: |
-          # 1. مسح المكتبات من package.json
-          sed -i '/react-native-reanimated/d' artifacts/mobile/package.json
-          sed -i '/react-native-gesture-handler/d' artifacts/mobile/package.json
-          
-          # 2. مسح الـ Import من أي ملف .js أو .tsx أو .ts في المشروع كله
-          # السطرين دول هينضفوا App.js وأي ملف تاني أوتوماتيك
-          find . -type f \( -name "*.js" -o -name "*.tsx" -o -name "*.ts" \) -exec sed -i '/react-native-reanimated/d' {} +
-          find . -type f \( -name "*.js" -o -name "*.tsx" -o -name "*.ts" \) -exec sed -i '/react-native-gesture-handler/d' {} +
-          
-          # 3. تنظيف وتثبيت
-          npm install -g pnpm
-          pnpm install --no-frozen-lockfile
-          
           cd artifacts/mobile
-          rm -rf android
-          npx expo prebuild --platform android --clean --no-install
-          pnpm install --no-frozen-lockfile
+          # مسح أي ملفات تثبيت قديمة
+          rm -f pnpm-lock.yaml package-lock.json
+          npm install --legacy-peer-deps
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -39,9 +26,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Final Build
+      - name: Build APK
         run: |
-          cd artifacts/mobile/android
-          echo "newArchEnabled=false" >> gradle.properties
+          cd artifacts/mobile
+          # إنشاء ملفات الأندرويد من جديد
+          npx expo prebuild --platform android --clean
+          cd android
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
