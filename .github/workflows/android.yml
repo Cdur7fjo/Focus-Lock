@@ -13,13 +13,18 @@ jobs:
         with:
           node-version: 20
 
-      - name: Hard Cleanup & Install
+      - name: The Ultimate Clean (Nuclear Option)
         run: |
-          # مسح المكتبة من كل ملفات المشروع أوتوماتيك
-          find . -name "package.json" -exec sed -i '/react-native-reanimated/d' {} +
-          find . -name "*.js" -exec sed -i '/react-native-reanimated/d' {} +
-          find . -name "*.tsx" -exec sed -i '/react-native-reanimated/d' {} +
+          # 1. مسح المكتبات من package.json
+          sed -i '/react-native-reanimated/d' artifacts/mobile/package.json
+          sed -i '/react-native-gesture-handler/d' artifacts/mobile/package.json
           
+          # 2. مسح الـ Import من أي ملف .js أو .tsx أو .ts في المشروع كله
+          # السطرين دول هينضفوا App.js وأي ملف تاني أوتوماتيك
+          find . -type f \( -name "*.js" -o -name "*.tsx" -o -name "*.ts" \) -exec sed -i '/react-native-reanimated/d' {} +
+          find . -type f \( -name "*.js" -o -name "*.tsx" -o -name "*.ts" \) -exec sed -i '/react-native-gesture-handler/d' {} +
+          
+          # 3. تنظيف وتثبيت
           npm install -g pnpm
           pnpm install --no-frozen-lockfile
           
@@ -39,4 +44,4 @@ jobs:
           cd artifacts/mobile/android
           echo "newArchEnabled=false" >> gradle.properties
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --quiet
+          ./gradlew assembleRelease --no-daemon
