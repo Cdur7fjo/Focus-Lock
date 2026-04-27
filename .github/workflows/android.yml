@@ -1,17 +1,27 @@
-name: Step 1 - Check Dependencies
+name: Step 2 - Android Prebuild
 on:
   workflow_dispatch:
 
 jobs:
-  check-libs:
+  prepare-android:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
+      - name: 1. Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
-      - name: Test Install
+
+      - name: 3. Install Dependencies
         run: |
           cd artifacts/mobile
+          # بنستخدم نفس الأمر اللي نجح معانا في المرحلة الأولى
           npm install --legacy-peer-deps
+
+      - name: 4. 🏗️ Create Android Folder (Prebuild)
+        run: |
+          cd artifacts/mobile
+          # الخطوة دي بتمسح أي ملفات أندرويد قديمة وبتبني مجلد جديد نضيف تماماً
+          npx expo prebuild --platform android --clean --no-install
